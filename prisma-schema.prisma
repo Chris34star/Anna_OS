@@ -1,0 +1,87 @@
+// Prisma reference for Supabase Postgres (self-hosted). Not wired to build.
+// Run `prisma db pull` after supabase-migration.sql is applied, then adjust.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Shop {
+  id             String    @id @default(uuid()) @db.Uuid
+  ownerId        String?   @map("owner_id") @db.Uuid
+  name           String
+  type           String    @default("general-retail")
+  currency       String    @default("KES")
+  staffCount     Int?      @map("staff_count")
+  templateTitle  String?   @map("template_title")
+  createdAt      DateTime? @map("created_at") @db.Timestamptz(6)
+  navs           ShopNav[]
+  products       Product[]
+  customers      Customer[]
+  sales          Sale[]
+
+  @@map("shops")
+}
+
+model ShopNav {
+  id         String  @id @default(uuid()) @db.Uuid
+  shopId     String  @map("shop_id") @db.Uuid
+  label      String
+  path       String
+  icon       String? @default("store")
+  isFixed    Boolean @map("is_fixed") @default(false)
+  isApproved Boolean @map("is_approved") @default(false)
+  orderIdx   Int     @map("order_idx") @default(0)
+  shop       Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@map("shop_navs")
+}
+
+model Product {
+  id           String  @id @default(uuid()) @db.Uuid
+  shopId       String  @map("shop_id") @db.Uuid
+  name         String
+  sku          String? @default("")
+  category     String? @default("")
+  buyPrice     Decimal? @map("buy_price")
+  sellPrice    Decimal? @map("sell_price")
+  stockQty     Int?    @map("stock_qty")
+  customFields Json?   @map("custom_fields")
+  // embedding vector(384) - use Unsupported until pgvector type lands
+  embedding    Unsupported("vector(384)")?
+  shop         Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@map("products")
+}
+
+model Customer {
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String
+  phone           String?   @default("")
+  shopId          String    @map("shop_id") @db.Uuid
+  totalSpent      Decimal?  @map("total_spent")
+  visitCount      Int?      @map("visit_count")
+  lastPurchaseDate DateTime? @map("last_purchase_date") @db.Date
+  points          Int?      @default(0)
+  rating          Int?
+  embedding       Unsupported("vector(384)")?
+  shop            Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@map("customers")
+}
+
+model Sale {
+  id         String  @id @default(uuid()) @db.Uuid
+  shopId     String  @map("shop_id") @db.Uuid
+  productId  String? @map("product_id") @db.Uuid
+  customerId String? @map("customer_id") @db.Uuid
+  qty        Int?    @default(1)
+  total      Decimal? @default(0)
+  date       DateTime? @db.Timestamptz(6)
+  shop       Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@map("sales")
+}

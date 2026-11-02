@@ -1,0 +1,15 @@
+{
+  "key": "supermarket",
+  "name": "Supermarket & Grocery",
+  "shop_type": "supermarket",
+  "navs": [
+    { "label": "Analyzer", "path": "analyzer", "icon": "chart", "is_fixed": true },
+    { "label": "POS", "path": "pos", "icon": "cart", "is_fixed": true },
+    { "label": "Inventory", "path": "inventory", "icon": "box", "is_fixed": false },
+    { "label": "Customers", "path": "customers", "icon": "users", "is_fixed": false },
+    { "label": "Goals", "path": "goals", "icon": "target", "is_fixed": false },
+    { "label": "Chat", "path": "chat", "icon": "chat", "is_fixed": false }
+  ],
+  "roles": ["CEO", "Cashier", "Inventory Clerk", "Floor Manager"],
+  "custom_fields": ["expiry_date", "batch_no", "supplier"]
+}

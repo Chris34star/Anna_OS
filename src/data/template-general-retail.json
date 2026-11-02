@@ -1,0 +1,15 @@
+{
+  "key": "general-retail",
+  "name": "General Retail / Boutique",
+  "shop_type": "boutique",
+  "navs": [
+    { "label": "Analyzer", "path": "analyzer", "icon": "chart", "is_fixed": true },
+    { "label": "POS", "path": "pos", "icon": "cart", "is_fixed": true },
+    { "label": "Inventory", "path": "inventory", "icon": "box", "is_fixed": false },
+    { "label": "Customers", "path": "customers", "icon": "users", "is_fixed": false },
+    { "label": "Content", "path": "content", "icon": "sparkles", "is_fixed": false },
+    { "label": "Chat", "path": "chat", "icon": "chat", "is_fixed": false }
+  ],
+  "roles": ["CEO", "Floor Cashier", "Stock Manager", "Attendant"],
+  "custom_fields": ["size", "color", "material", "supplier"]
+}

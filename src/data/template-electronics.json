@@ -1,0 +1,15 @@
+{
+  "key": "electronics",
+  "name": "Electronics & Repairs",
+  "shop_type": "electronics",
+  "navs": [
+    { "label": "Analyzer", "path": "analyzer", "icon": "chart", "is_fixed": true },
+    { "label": "POS", "path": "pos", "icon": "cart", "is_fixed": true },
+    { "label": "Inventory", "path": "inventory", "icon": "box", "is_fixed": false },
+    { "label": "Repairs", "path": "tasks", "icon": "wrench", "is_fixed": false },
+    { "label": "Customers", "path": "customers", "icon": "users", "is_fixed": false },
+    { "label": "Chat", "path": "chat", "icon": "chat", "is_fixed": false }
+  ],
+  "roles": ["CEO", "Cashier", "Technician", "Stock Manager"],
+  "custom_fields": ["warranty_months", "serial_no", "condition", "supplier"]
+}
