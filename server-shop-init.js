@@ -12,6 +12,7 @@ import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { ragService } from './server-rag-service.js';
+import { runAnalyze, runLearningCycle } from './server-agents.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -128,6 +129,29 @@ app.post('/api/rag/index', async (req, res) => {
     if (!shop_id) return res.status(400).json({ error: 'shop_id required' });
     const saved = await ragService.indexWrite(shop_id, kind, row);
     res.json({ saved });
+  } catch (e) {
+    res.status(500).json({ error: String((e && e.message) || e) });
+  }
+});
+
+// Multi-agent supervisor: POST /api/analyze/run { shop_id } -> Daily Brief
+app.post('/api/analyze/run', async (req, res) => {
+  try {
+    const { shop_id = null } = req.body || {};
+    if (!shop_id) return res.status(400).json({ error: 'shop_id required' });
+    const result = await runAnalyze(shop_id);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: String((e && e.message) || e) });
+  }
+});
+
+// learningAgent cron 6h: POST /api/learn/run { shop_id? } (empty = all shops)
+app.post('/api/learn/run', async (req, res) => {
+  try {
+    const { shop_id = null } = req.body || {};
+    const result = await runLearningCycle(shop_id);
+    res.json({ result });
   } catch (e) {
     res.status(500).json({ error: String((e && e.message) || e) });
   }
