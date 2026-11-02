@@ -1,0 +1,10 @@
+{
+  "key": "pricing",
+  "currency": { "USD": "$", "KES": "KES " },
+  "plans": [
+    { "key": "free", "name": "Free", "usd": 0, "kes": 0, "limits": { "shops_per_owner": 1, "products": 50, "customers": 100, "sales": 20, "analysis_per_month": 5, "roles": 2, "connectors": 0, "multi_shop": false } },
+    { "key": "starter", "name": "Starter", "usd": 19, "kes": 2500, "limits": { "shops_per_owner": 1, "products": 300, "customers": 1000, "sales": 5000, "analysis_per_month": 100, "roles": 4, "connectors": 2, "multi_shop": false } },
+    { "key": "growth", "name": "Growth", "usd": 49, "kes": 6500, "limits": { "shops_per_owner": 3, "products": -1, "customers": -1, "sales": -1, "analysis_per_month": 500, "roles": 10, "connectors": -1, "multi_shop": false } },
+    { "key": "scale", "name": "Scale", "usd": 99, "kes": 13000, "limits": { "shops_per_owner": -1, "products": -1, "customers": -1, "sales": -1, "analysis_per_month": -1, "roles": -1, "connectors": -1, "multi_shop": true } }
+  ]
+}

@@ -107,4 +107,18 @@ export const connectors = {
   remove: (id: string) => api(`/api/connectors/${id}`, { method: 'DELETE' }),
 };
 
-export const supa = { rest, initShop, ragIndex, ragQuery, pos, customers, sales, messaging, connectors, isSupabaseConfigured };
+/** Billing: paystack initialize + subscription usage. */
+export const billing = {
+  plans: () => [
+    { key: 'free', name: 'Free', usd: 0, kes: 0 },
+    { key: 'starter', name: 'Starter', usd: 19, kes: 2500 },
+    { key: 'growth', name: 'Growth', usd: 49, kes: 6500 },
+    { key: 'scale', name: 'Scale', usd: 99, kes: 13000 },
+  ],
+  initialize: (b: { shop_id: string; plan: string; email: string; currency?: string; callback_url?: string }) =>
+    api<{ authorization_url: string; reference: string }>(`/api/payments/initialize`, { method: 'POST', body: b }),
+  subscription: (shop_id: string) =>
+    api<{ subscription: unknown; plan: unknown; limits: Record<string, number>; usage: Record<string, number> }>(`/api/subscription/${shop_id}`),
+};
+
+export const supa = { rest, initShop, ragIndex, ragQuery, pos, customers, sales, messaging, connectors, billing, isSupabaseConfigured };

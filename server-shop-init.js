@@ -15,6 +15,7 @@ import { ragService } from './server-rag-service.js';
 import { runAnalyze, runLearningCycle } from './server-agents.js';
 import { mountGoalsContentTasks } from './server-goals-content.js';
 import { mountPosRatingMessaging } from './server-pos-messaging.js';
+import { checkSubscription, mountPayments } from './server-payments.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -89,6 +90,9 @@ app.post('/api/shop/init', async (req, res) => {
       template_title: template.name,
     });
 
+    // auto free subscription on shop creation
+    await sb('subscriptions', 'POST', { shop_id: shop.id, plan: 'free', status: 'active' }).catch(() => []);
+
     // Scoped RLS context for downstream requests using this shop
     await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_shop_context`, {
       method: 'POST',
@@ -136,8 +140,8 @@ app.post('/api/rag/index', async (req, res) => {
   }
 });
 
-// Multi-agent supervisor: POST /api/analyze/run { shop_id } -> Daily Brief
-app.post('/api/analyze/run', async (req, res) => {
+// Multi-agent supervisor: POST /api/analyze/run { shop_id } -> Daily Brief (plan-gated)
+app.post('/api/analyze/run', checkSubscription, async (req, res) => {
   try {
     const { shop_id = null } = req.body || {};
     if (!shop_id) return res.status(400).json({ error: 'shop_id required' });
@@ -163,6 +167,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 mountGoalsContentTasks(app);
 mountPosRatingMessaging(app);
+mountPayments(app);
 
 const port = Number(process.env.PORT || 8080);
 app.listen(port, () => console.log(`shop-init listening on :${port}`));

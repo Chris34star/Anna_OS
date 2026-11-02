@@ -5,6 +5,7 @@
  */
 import { ragService } from './server-rag-service.js';
 import { contentGeneratorAgent, marketingAnalyzer } from './server-agents.js';
+import { checkSubscription } from './server-payments.js';
 
 const SB_URL = () => process.env.SUPABASE_URL || '';
 const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -124,8 +125,8 @@ export function mountGoalsContentTasks(app) {
     }
   });
 
-  // POST /api/content/generate — content area default empty; generates 5 items
-  app.post('/api/content/generate', async (req, res) => {
+  // POST /api/content/generate — content area default empty; generates 5 items (plan-gated)
+  app.post('/api/content/generate', checkSubscription, async (req, res) => {
     try {
       const { shop_id = null } = req.body || {};
       if (!shop_id) return res.status(400).json({ error: 'shop_id required' });
