@@ -11,6 +11,7 @@ import express from 'express';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { ragService } from './server-rag-service.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -106,6 +107,29 @@ app.post('/api/shop/init', async (req, res) => {
     res.json({ shop, template_key: picked.template_key, navs, roles });
   } catch (e) {
     res.status(500).json({ error: String(e && e.message || e) });
+  }
+});
+
+app.post('/api/rag/query', async (req, res) => {
+  try {
+    const { shop_id = null, question = '' } = req.body || {};
+    if (!shop_id || !question) return res.status(400).json({ error: 'shop_id and question required' });
+    const { context, answer, docs } = await ragService.answerQuery(shop_id, question);
+    res.json({ context, answer, docs });
+  } catch (e) {
+    res.status(500).json({ error: String((e && e.message) || e) });
+  }
+});
+
+// Index any write (sale / customer / note / task user_notes / goal / onboarding answer)
+app.post('/api/rag/index', async (req, res) => {
+  try {
+    const { shop_id = null, kind = 'note', row = {} } = req.body || {};
+    if (!shop_id) return res.status(400).json({ error: 'shop_id required' });
+    const saved = await ragService.indexWrite(shop_id, kind, row);
+    res.json({ saved });
+  } catch (e) {
+    res.status(500).json({ error: String((e && e.message) || e) });
   }
 });
 
