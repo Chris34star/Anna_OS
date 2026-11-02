@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useStore } from '../lib/store';
+import { DemoSeeder } from '../components/Wiring';
 import { Product, Sale } from '../types';
 
 export const ImportView: React.FC = () => {
@@ -199,6 +200,7 @@ export const ImportView: React.FC = () => {
             <Sparkles className={`w-3.5 h-3.5 ${isSeeding ? 'animate-spin' : ''}`} />
             <span>{isSeeding ? 'Seeding Database...' : 'Seed Demo Data'}</span>
           </button>
+          <div className="pt-1"><DemoSeeder /></div>
         </div>
 
         {/* Option 2: Excel Upload */}

@@ -17,10 +17,14 @@ import { CustomersView } from './views/CustomersView';
 import { TasksView } from './views/TasksView';
 import { TeamView } from './views/TeamView';
 import { ChatView } from './views/ChatView';
+import { AIChatView } from './views/AIChatView';
+import { DashboardView } from './views/DashboardView';
+import { MessagingView } from './views/MessagingView';
 import { ImportView } from './views/ImportView';
 import { OnboardingView } from './views/OnboardingView';
 import { LandingPageView } from './views/LandingPageView';
 import { SettingsModal } from './components/SettingsModal';
+import { ChatBubble } from './components/ChatBubble';
 
 function AppContent() {
   const { activeTab, isLandingPage } = useStore();
@@ -58,6 +62,9 @@ function AppContent() {
         {/* Dynamic Viewport */}
         <main className="flex-1 overflow-y-auto">
           {activeTab === 'analyzer' && <AnalyzerView />}
+          {activeTab === 'dashboard' && <DashboardView />}
+          {activeTab === 'ai-chat' && <AIChatView />}
+          {activeTab === 'messaging' && <MessagingView />}
           {activeTab === 'pos' && <POSView />}
           {activeTab === 'inventory' && <InventoryView />}
           {activeTab === 'goals' && <GoalsView />}
@@ -79,6 +86,9 @@ function AppContent() {
           onClose={() => setIsSettingsOpen(false)}
         />
       )}
+
+      {/* Global AI chat bubble — every page */}
+      <ChatBubble />
     </div>
   );
 }

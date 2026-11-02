@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useStore } from '../lib/store';
+import { NavApproval } from '../components/Wiring';
 import { OnboardingExtractionResult, extractOnboardingDetails } from '../lib/llama';
 
 interface ChatMessage {
@@ -90,7 +91,7 @@ export const OnboardingView: React.FC = () => {
     }
   };
 
-  const handleApplyConfig = () => {
+  const handleApplyConfig = async () => {
     if (activeConfig) {
       setShop({
         ...shop,
@@ -100,6 +101,27 @@ export const OnboardingView: React.FC = () => {
         suggested_roles: activeConfig.suggested_roles,
         custom_fields_needed: activeConfig.custom_fields_needed,
       });
+      // Save onboarding Q&A to knowledge_base + create shop server-side (nav approval next)
+      try {
+        const API = (import.meta as any).env?.VITE_API_BASE || '';
+        const qna = messages.map((m) => `${m.sender === 'ai' ? 'AI' : 'Owner'}: ${m.text}`).join('\n');
+        const sid = localStorage.getItem('anna_shop_id') || shop.id || 'demo-shop';
+        await fetch(`${API}/api/onboarding/notes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shop_id: sid, notes: `Business: ${activeConfig.shop_name} (${activeConfig.shop_type}), staff ${activeConfig.staff_count}. Q&A:\n${qna}`.slice(0, 3000) }),
+        }).catch(() => {});
+        const r = await fetch(`${API}/api/shop/init`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answers: qna.slice(0, 2000), shop_name: activeConfig.shop_name }),
+        }).catch(() => null);
+        const j = await r?.json().catch(() => null);
+        if (j?.shop?.id) {
+          localStorage.setItem('anna_shop_id', j.shop.id);
+          (window as any).__annaNavs = j.navs || [];
+        }
+      } catch {}
     }
     setActiveTab('pos');
   };
@@ -379,6 +401,9 @@ export const OnboardingView: React.FC = () => {
             <Check className="w-4 h-4" />
             <span>Save Shop &amp; Open POS Register</span>
           </button>
+          {(window as any).__annaNavs?.length ? (
+            <NavApproval navs={(window as any).__annaNavs} onDone={() => { (window as any).__annaNavs = []; }} />
+          ) : null}
         </div>
       </div>
     </div>

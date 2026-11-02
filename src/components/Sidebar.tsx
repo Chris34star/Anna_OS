@@ -59,6 +59,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isSalon = shop.type === 'salon_spa';
 
   // Base navigation items
+  // Dynamic override: when shop_navs (is_approved) are loaded, render from them.
+  const [dynNavs, setDynNavs] = React.useState<{ id: string; label: string; path: string; is_fixed: boolean }[] | null>(null);
+  React.useEffect(() => {
+    const base = (import.meta as any).env?.VITE_API_BASE || '';
+    const shopId = localStorage.getItem('anna_shop_id');
+    if (!shopId) return;
+    fetch(`${base}/api/shop/navs?shop_id=${shopId}`)
+      .then((r) => r.json())
+      .then((j) => {
+        const approved = (j.navs || []).filter((n: any) => n.is_approved);
+        if (approved.length) setDynNavs(approved);
+      })
+      .catch(() => {});
+  }, [shop.id]);
+
+  const dynItems = dynNavs
+    ? dynNavs.map((n) => ({
+        id: n.path as NavigationTab,
+        label: n.label,
+        icon: n.is_fixed ? (
+          <Store className="w-4 h-4 text-emerald-400" />
+        ) : (
+          <ChevronRight className="w-4 h-4 text-neutral-400" />
+        ),
+      }))
+    : null;
+
   const allNavItems: {
     id: NavigationTab;
     label: string;
@@ -67,7 +94,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
     isRedBadge?: boolean;
     accentColor?: string;
     permissionKey?: keyof typeof currentUser.permissions;
-  }[] = [
+  }[] = dynItems && dynItems.length
+    ? // spec fixed navs: dashboard ai-chat tasks goals messaging settings/connectors
+      dynItems
+    : [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: <Store className="w-4 h-4 text-emerald-400" />,
+    },
+    {
+      id: 'analyzer',
+      label: 'Anna Analyzer',
+      icon: <BrainCircuit className="w-4 h-4 text-emerald-400" />,
+      badge: activeInsightsCount > 0 ? `${activeInsightsCount}` : undefined,
+      permissionKey: 'can_view_analyzer',
+    },
+    {
+      id: 'ai-chat',
+      label: 'AI Chat',
+      icon: <MessageSquareCode className="w-4 h-4 text-rose-400" />,
+      badge: unreadAssistantCount > 0 ? `${unreadAssistantCount}` : undefined,
+      isRedBadge: unreadAssistantCount > 0,
+    },
+    {
+      id: 'messaging',
+      label: 'Messaging',
+      icon: <MessageSquare className="w-4 h-4 text-teal-400" />,
+    },
     {
       id: 'analyzer',
       label: 'Anna Analyzer',

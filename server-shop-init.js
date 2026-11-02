@@ -16,6 +16,7 @@ import { runAnalyze, runLearningCycle } from './server-agents.js';
 import { mountGoalsContentTasks } from './server-goals-content.js';
 import { mountPosRatingMessaging } from './server-pos-messaging.js';
 import { checkSubscription, mountPayments } from './server-payments.js';
+import { mountFrontendAPIs } from './server-frontend.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -168,6 +169,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 mountGoalsContentTasks(app);
 mountPosRatingMessaging(app);
 mountPayments(app);
+mountFrontendAPIs(app);
 
 const port = Number(process.env.PORT || 8080);
 app.listen(port, () => console.log(`shop-init listening on :${port}`));

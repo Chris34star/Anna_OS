@@ -39,6 +39,9 @@ import {
 
 export type NavigationTab =
   | 'analyzer'
+  | 'dashboard'
+  | 'ai-chat'
+  | 'messaging'
   | 'pos'
   | 'inventory'
   | 'customers'

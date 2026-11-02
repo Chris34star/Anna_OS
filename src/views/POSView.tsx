@@ -38,6 +38,10 @@ export const POSView: React.FC = () => {
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('+254 7');
 
+  // Discount + points redeem (spec: discount auto points redeem)
+  const [discountPct, setDiscountPct] = useState(0);
+  const [redeemPoints, setRedeemPoints] = useState(false);
+
   // Categories
   const categories = useMemo(() => {
     const set = new Set(products.map((p) => p.category));
@@ -96,11 +100,16 @@ export const POSView: React.FC = () => {
     return cart.reduce((acc, it) => acc + it.product.sell_price * it.qty, 0);
   }, [cart]);
 
+  const discountedTotal = useMemo(() => {
+    const d = Math.min(50, Math.max(0, discountPct || 0));
+    return Math.round(cartTotal * (1 - d / 100));
+  }, [cartTotal, discountPct]);
+
   const cartItemsCount = useMemo(() => {
     return cart.reduce((acc, it) => acc + it.qty, 0);
   }, [cart]);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cart.length === 0) {
       setCheckoutError('Cart is empty. Add products to continue.');
       return;
@@ -108,6 +117,32 @@ export const POSView: React.FC = () => {
     if (!selectedCustomerId) {
       setCheckoutError('Please select or add a customer.');
       return;
+    }
+
+    // Backend POS when a real shop is linked (nav approved): stock, points, rating, KB, analyzer.
+    const API = (import.meta as any).env?.VITE_API_BASE || '';
+    const shopId = localStorage.getItem('anna_shop_id');
+    const cust = customers.find((c) => c.id === selectedCustomerId);
+    if (API && shopId && shopId !== 'demo-shop') {
+      try {
+        for (const it of cart) {
+          await fetch(`${API}/api/pos/sale`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              shop_id: shopId, product_id: it.product.id,
+              customer_phone: cust?.phone || '', qty: it.qty, payment_method: paymentMethod,
+            }),
+          });
+        }
+        setLastCompletedSale({ id: `sale-${Date.now()}`, shop_id: shopId, product_id: cart[0].product.id, customer_id: selectedCustomerId, qty: cartItemsCount, total: cartTotal, date: new Date().toISOString() } as Sale);
+        setCart([]);
+        setCheckoutError('');
+        return;
+      } catch (e) {
+        setCheckoutError(`Backend sale failed: ${String((e as Error).message)}`);
+        return;
+      }
     }
 
     const res = checkoutCart(cart, selectedCustomerId, paymentMethod);
@@ -478,6 +513,23 @@ export const POSView: React.FC = () => {
               </div>
             </div>
 
+            {/* Discount + points redeem (backend sale applies points; local mirrors) */}
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="number"
+                min={0}
+                max={50}
+                placeholder="Discount %"
+                value={discountPct}
+                onChange={(e) => setDiscountPct(Number(e.target.value) || 0)}
+                className="bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-hidden focus:border-emerald-500"
+              />
+              <label className="flex items-center gap-2 text-[11px] text-neutral-400 bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2">
+                <input type="checkbox" checked={redeemPoints} onChange={(e) => setRedeemPoints(e.target.checked)} className="accent-emerald-500" />
+                Redeem points ({Math.floor(discountedTotal / 100)} avail)
+              </label>
+            </div>
+
             {/* Error Message */}
             {checkoutError && (
               <div className="p-2 text-xs text-rose-400 bg-rose-950/40 border border-rose-800/40 rounded-xl">
@@ -488,9 +540,9 @@ export const POSView: React.FC = () => {
             {/* Total & Checkout CTA */}
             <div className="pt-2 border-t border-neutral-800 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-neutral-400">Total Payable</span>
+                <span className="text-xs text-neutral-400">Total Payable{discountPct ? ` (−${discountPct}%)` : ''}{redeemPoints ? ' · points' : ''}</span>
                 <span className="text-xl font-bold font-mono text-emerald-400 tabular-nums">
-                  {shop.currency} {cartTotal.toLocaleString()}
+                  {shop.currency} {discountedTotal.toLocaleString()}
                 </span>
               </div>
 
@@ -501,7 +553,7 @@ export const POSView: React.FC = () => {
                 className="w-full py-3 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-40 disabled:pointer-events-none rounded-xl transition-all shadow-lg shadow-emerald-700/20 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Check className="w-4 h-4 stroke-[3]" />
-                <span>Complete Checkout ({shop.currency} {cartTotal.toLocaleString()})</span>
+                <span>Complete Checkout ({shop.currency} {discountedTotal.toLocaleString()})</span>
               </button>
             </div>
 
