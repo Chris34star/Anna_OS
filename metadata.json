@@ -1,0 +1,6 @@
+{
+  "name": "DukaAI - Llama Store Manager",
+  "description": "An AI Business Analyzer for Electronics Shops powered by Llama 3 and WhatsApp Business API.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
