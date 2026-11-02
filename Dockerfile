@@ -1,7 +1,7 @@
-FROM node:20-alpine AS build
+FROM node:20-slim AS build
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci || npm install
+COPY package.json ./
+RUN npm install
 COPY . .
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
