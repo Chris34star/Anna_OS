@@ -13,6 +13,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { ragService } from './server-rag-service.js';
 import { runAnalyze, runLearningCycle } from './server-agents.js';
+import { mountGoalsContentTasks } from './server-goals-content.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -158,6 +159,8 @@ app.post('/api/learn/run', async (req, res) => {
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+mountGoalsContentTasks(app);
 
 const port = Number(process.env.PORT || 8080);
 app.listen(port, () => console.log(`shop-init listening on :${port}`));
