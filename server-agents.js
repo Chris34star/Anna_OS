@@ -133,6 +133,7 @@ export async function contentGeneratorAgent(shop_id, marketing) {
     hook: c.hook || '',
     script_body: c.script_body || '',
     status: 'generated',
+    curation_state: 'new_daily',
   }));
   if (!rows.length) return [];
   return sb('content_queue', 'POST', rows).catch(() => []);
@@ -154,6 +155,7 @@ export async function supervisorMerge(shop_id, summaries, ragContext) {
   const contentRows = (merged.content_suggestions || []).map((c) => ({
     shop_id, platform: c.platform || 'whatsapp_status', title: c.title || '',
     hook: c.hook || '', script_body: c.script_body || '', status: 'generated',
+    curation_state: 'new_daily',
   }));
   const goalRows = (merged.goal_suggestions || []).map((g) => ({
     shop_id, title: g.title || '', target_value: g.target_value || 0,

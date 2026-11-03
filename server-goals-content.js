@@ -168,7 +168,7 @@ export function mountGoalsContentTasks(app) {
         return res.status(400).json({ error: 'shop_id and action=select|discard required' });
       }
       const status = action === 'select' ? 'selected' : 'discarded';
-      const [item] = await sb('content_queue', 'PATCH', { status }, `?id=eq.${id}`);
+      const [item] = await sb('content_queue', 'PATCH', { status, curation_state: status }, `?id=eq.${id}`);
       let task = null;
       if (action === 'select') {
         [task] = await sb('tasks', 'POST', {
