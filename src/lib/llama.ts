@@ -387,5 +387,3 @@ export async function generateWhatsAppDraft(
 
   return `Habari ${recipientName}! 👜 Special styling bundle at Amani Luxe Boutique: Pick up any evening dress or footwear today and add an Italian Quilted Leather Crossbody Bag for just KES 4,500 (save KES 700)! Pass by our store or reply to order via M-Pesa courier delivery. Have a fabulous day! ✨`;
 }
- delivery. Have a fabulous day! ✨`;
-}
