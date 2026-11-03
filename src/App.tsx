@@ -23,6 +23,7 @@ import { MessagingView } from './views/MessagingView';
 import { ImportView } from './views/ImportView';
 import { OnboardingView } from './views/OnboardingView';
 import { LandingPageView } from './views/LandingPageView';
+import { DemoSetupView } from './views/DemoSetupView';
 import { SettingsModal } from './components/SettingsModal';
 import { ChatBubble } from './components/ChatBubble';
 
@@ -76,6 +77,7 @@ function AppContent() {
           {activeTab === 'chat' && <ChatView />}
           {activeTab === 'import' && <ImportView />}
           {activeTab === 'onboarding' && <OnboardingView />}
+          {activeTab === 'demo-setup' && <DemoSetupView />}
         </main>
       </div>
 

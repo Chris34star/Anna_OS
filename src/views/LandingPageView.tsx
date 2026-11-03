@@ -44,7 +44,7 @@ export const LandingPageView: React.FC = () => {
 
   const handleLaunchDemo = () => {
     setIsLandingPage(false);
-    setActiveTab('analyzer');
+    setActiveTab('demo-setup');
   };
 
   const handleSocialSignIn = async (provider: 'google' | 'facebook' | 'apple' | 'email') => {
@@ -125,7 +125,7 @@ export const LandingPageView: React.FC = () => {
                 className="px-3.5 py-1.5 text-xs font-semibold text-neutral-300 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <Play className="w-3 h-3 text-emerald-400 fill-current" />
-                <span>Boutique Demo</span>
+                <span>Explore Demo</span>
               </button>
 
               <button
@@ -171,7 +171,7 @@ export const LandingPageView: React.FC = () => {
             className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/80 text-white font-bold text-sm shadow-xl flex items-center justify-center gap-2.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           >
             <Play className="w-4 h-4 text-emerald-400 fill-current" />
-            <span>Launch Interactive Boutique Demo (1-Click)</span>
+            <span>Explore Demo</span>
           </button>
 
           <button
@@ -366,7 +366,7 @@ export const LandingPageView: React.FC = () => {
               onClick={handleLaunchDemo}
               className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto shadow-lg shadow-emerald-950"
             >
-              <span>Launch Interactive Boutique Demo</span>
+              <span>Explore Demo</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

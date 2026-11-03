@@ -53,7 +53,8 @@ export type NavigationTab =
   | 'chat'
   | 'import'
   | 'landing'
-  | 'onboarding';
+  | 'onboarding'
+  | 'demo-setup';
 
 interface StoreContextType {
   shop: Shop;
@@ -232,7 +233,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [isLandingPage, setIsLandingPageState] = useState<boolean>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.IS_LANDING);
-    return saved ? JSON.parse(saved) : false;
+    // Main domain / first visit must land on the landing page
+    return saved ? JSON.parse(saved) : true;
   });
 
   // User requested: "Anna assistant should show 1 like a red new thing incase ai has some questions for improvement"
