@@ -95,7 +95,8 @@ export function mountFrontendAPIs(app) {
       if (lower.includes('dead stock')) {
         const sales = await sb('sales', 'GET', null, `?shop_id=eq.${shop_id}&order=date.desc&limit=200`).catch(() => []);
         const products = await sb('products', 'GET', null, `?shop_id=eq.${shop_id}&limit=200`).catch(() => []);
-        const out = await salesAnalyzer({ sales, products });
+        const { groundTruth } = await import('./server-agents.js');
+        const out = await salesAnalyzer({ sales, products }, groundTruth({ sales, products, customers: [] }));
         try { await ragService.indexWrite(shop_id, 'note', `Dead stock check: ${JSON.stringify(out).slice(0, 1000)}`, 'ai_chat'); } catch {}
         return res.json({ action: 'dead_stock', answer: out.dead_stock?.length ? `Dead stock (${out.dead_stock.length}): ${out.dead_stock.slice(0, 5).map((d) => d.name).join(', ')}` : 'No dead stock detected.', data: out });
       }

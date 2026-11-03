@@ -10,12 +10,12 @@
  *  tasks/content_queue/goals -> Step5 save ai_insights passed_to_main=true.
  */
 import { ragService } from './server-rag-service.js';
+import { aiJSON, timed, truncateStr } from './server-ai.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const GROQ_API_KEY = process.env.AI_API_KEY || process.env.GROQ_API_KEY || '';
-// All agents use Meta Musepark 1.3 (override via AI_MODEL env).
-const AI_MODEL = process.env.AI_MODEL || 'meta-musepark-1.3';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const validShop = (id) => UUID_RE.test(String(id || ''));
 
 async function sb(path, method = 'GET', body, query = '') {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}${query}`, {
@@ -32,29 +32,136 @@ async function sb(path, method = 'GET', body, query = '') {
   return r.json();
 }
 
-// Meta Musepark 1.3 JSON tool call with safe fallback.
-async function llamaJSON(system, user, fallback) {
-  if (!GROQ_API_KEY) return fallback;
-  try {
-    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_API_KEY}` },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: typeof user === 'string' ? user : JSON.stringify(user).slice(0, 12000) },
-        ],
-      }),
-    });
-    if (!r.ok) return fallback;
-    const j = await r.json();
-    return JSON.parse(j.choices?.[0]?.message?.content || 'null') ?? fallback;
-  } catch {
-    return fallback;
+// --- Step0: deterministic ground truth (free, same logic as frontend llama.ts) ---
+
+export function groundTruth({ products = [], customers = [], sales = [] }) {
+  const now = Date.now();
+  const deadStockProducts = (products || []).filter((p) => {
+    const prodSales = (sales || []).filter((s) => s.product_id === p.id);
+    if (!prodSales.length) return true;
+    const times = prodSales.map((s) => new Date(s.date || s.created_at || now).getTime()).filter(Boolean);
+    if (!times.length) return true;
+    return (now - Math.max(...times)) / 86400000 >= 45;
+  });
+  const dead = deadStockProducts[0] || null;
+  const deadQty = dead?.stock_qty ?? 0;
+  const deadValue = dead ? (Number(dead.sell_price) || 0) * deadQty : 0;
+  const vipAtRisk = (customers || []).filter(
+    (c) => Number(c.total_spent) >= 50000 && (now - new Date(c.last_purchase_date || c.created_at || now).getTime()) / 86400000 >= 30
+  );
+  const lowStock = (products || []).filter((p) => Number(p.stock_qty) <= 5).slice(0, 20);
+  const overstock = (products || []).filter((p) => Number(p.stock_qty) >= 100).slice(0, 20);
+  return {
+    dead: dead ? { product_id: dead.id, name: dead.name, qty: deadQty, value: deadValue } : null,
+    deadCount: deadStockProducts.length,
+    vipAtRisk: vipAtRisk.slice(0, 20).map((c) => ({ customer_id: c.id, name: c.name, total_spent: c.total_spent })),
+    vipAtRiskCount: vipAtRisk.length,
+    lowStock: lowStock.map((p) => ({ product_id: p.id, name: p.name, stock_qty: p.stock_qty })),
+    overstock: overstock.map((p) => ({ product_id: p.id, name: p.name, stock_qty: p.stock_qty })),
+  };
+}
+
+// --- Validators: coerce LLM JSON into safe shapes (unknown/invalid fields dropped) ---
+
+const asArr = (v) => (Array.isArray(v) ? v : []);
+const asStr = (v, max = 500) => truncateStr(v ?? '', max);
+const asNum = (v, d = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : d;
+};
+
+function validateSales(o) {
+  o = o && typeof o === 'object' ? o : {};
+  return {
+    dead_stock: asArr(o.dead_stock).slice(0, 20).map((d) => ({ product_id: asStr(d?.product_id, 60), name: asStr(d?.name), reason: asStr(d?.reason, 300) })),
+    fast_movers: asArr(o.fast_movers).slice(0, 20).map((d) => ({ product_id: asStr(d?.product_id, 60), name: asStr(d?.name), qty_sold: asNum(d?.qty_sold) })),
+    seasonality: asStr(o.seasonality, 500),
+    suggested_discounts: asArr(o.suggested_discounts).slice(0, 20).map((d) => ({ product_id: asStr(d?.product_id, 60), percent: Math.min(90, Math.max(0, asNum(d?.percent))), reason: asStr(d?.reason, 300) })),
+  };
+}
+function validateInventory(o) {
+  o = o && typeof o === 'object' ? o : {};
+  const item = (d) => ({ product_id: asStr(d?.product_id, 60), name: asStr(d?.name), stock_qty: asNum(d?.stock_qty) });
+  return {
+    low_stock: asArr(o.low_stock).slice(0, 20).map(item),
+    overstock: asArr(o.overstock).slice(0, 20).map(item),
+    reorder: asArr(o.reorder).slice(0, 20).map((d) => ({ ...item(d), suggested_qty: asNum(d?.suggested_qty) })),
+  };
+}
+function validateCustomers(o) {
+  o = o && typeof o === 'object' ? o : {};
+  const seg = o.segments && typeof o.segments === 'object' ? o.segments : {};
+  return {
+    rating_updates: asArr(o.rating_updates).slice(0, 50).map((d) => ({ customer_id: asStr(d?.customer_id, 60), rating: Math.min(10, Math.max(1, Math.round(asNum(d?.rating, 5)))), reason: asStr(d?.reason, 300) })),
+    segments: {
+      vip: asArr(seg.vip).slice(0, 50).map((x) => asStr(x?.customer_id || x, 60)),
+      at_risk: asArr(seg.at_risk).slice(0, 50).map((x) => asStr(x?.customer_id || x, 60)),
+      new: asArr(seg.new).slice(0, 50).map((x) => asStr(x?.customer_id || x, 60)),
+      regular: asArr(seg.regular).slice(0, 50).map((x) => asStr(x?.customer_id || x, 60)),
+    },
+    points: asArr(o.points).slice(0, 50).map((d) => ({ customer_id: asStr(d?.customer_id, 60), points_award: asNum(d?.points_award), reason: asStr(d?.reason, 300) })),
+  };
+}
+function validateMarketing(o) {
+  o = o && typeof o === 'object' ? o : {};
+  return {
+    at_risk: asArr(o.at_risk).slice(0, 20).map((d) => ({ customer_id: asStr(d?.customer_id, 60), name: asStr(d?.name), reason: asStr(d?.reason, 300) })),
+    vip_churn: asArr(o.vip_churn).slice(0, 20).map((d) => ({ customer_id: asStr(d?.customer_id, 60), name: asStr(d?.name), risk: asStr(d?.risk, 300) })),
+    campaign_ideas: asArr(o.campaign_ideas).slice(0, 10).map((d) => ({ title: asStr(d?.title), audience: asStr(d?.audience, 300), message: asStr(d?.message, 1000) })),
+    scripts: asArr(o.scripts).slice(0, 10).map((d) => ({ campaign: asStr(d?.campaign), script_body: asStr(d?.script_body, 2000) })),
+    image_prompts: asArr(o.image_prompts).slice(0, 10).map((d) => ({ campaign: asStr(d?.campaign), image_prompt: asStr(d?.image_prompt, 1000) })),
+  };
+}
+
+// --- Step2 analyzers (run in parallel; LLM output merged over ground truth) ---
+
+export async function salesAnalyzer({ sales, products }, truth) {
+  const out = await aiJSON(
+    'You are a retail sales analyst. Input: last 200 sales + product list + precomputed ground truth. TRUST the ground-truth dead-stock/VIP numbers (computed from real dates) — enrich with seasonality and discount reasons. Return ONLY JSON: {"dead_stock":[{"product_id":..,"name":..,"reason":..}],"fast_movers":[{"product_id":..,"name":..,"qty_sold":..}],"seasonality":"...","suggested_discounts":[{"product_id":..,"percent":..,"reason":..}]}',
+    { sales: (sales || []).slice(0, 200), products: (products || []).slice(0, 200), ground_truth: truth },
+    { dead_stock: [], fast_movers: [], seasonality: '', suggested_discounts: [] }
+  );
+  const v = validateSales(out);
+  if (truth?.dead && !v.dead_stock.some((d) => d.product_id === truth.dead.product_id)) {
+    v.dead_stock.unshift({ product_id: truth.dead.product_id, name: truth.dead.name, reason: `No sale in 45+ days — ${truth.dead.qty} units locking KES ${truth.dead.value}` });
   }
+  return v;
+}
+
+export async function inventoryAnalyzer({ products }, truth) {
+  const out = await aiJSON(
+    'You are an inventory analyst. Input: product list with stock_qty + ground-truth low/overstock. Confirm or refine. Return ONLY JSON: {"low_stock":[{"product_id":..,"name":..,"stock_qty":..}],"overstock":[{"product_id":..,"name":..,"stock_qty":..}],"reorder":[{"product_id":..,"name":..,"suggested_qty":..}]}',
+    { products: (products || []).slice(0, 300), ground_truth: truth },
+    { low_stock: [], overstock: [], reorder: [] }
+  );
+  const v = validateInventory(out);
+  for (const g of truth?.lowStock || []) {
+    if (!v.low_stock.some((x) => x.product_id === g.product_id)) v.low_stock.push(g);
+  }
+  return v;
+}
+
+export async function customerAnalyzer({ customers }, truth) {
+  const out = await aiJSON(
+    'You are a customer analyst for a Kenyan retail shop. Input: customers with total_spent, visit_count, points, rating (1-10) + ground-truth VIP-at-risk list. TRUST the ground-truth list for vip/at_risk segments. Return ONLY JSON: {"rating_updates":[{"customer_id":..,"rating":1-10,"reason":..}],"segments":{"vip":[],"at_risk":[],"new":[],"regular":[]},"points":[{"customer_id":..,"points_award":..,"reason":..}]}',
+    { customers: (customers || []).slice(0, 300), ground_truth: truth },
+    { rating_updates: [], segments: { vip: [], at_risk: [], new: [], regular: [] }, points: [] }
+  );
+  const v = validateCustomers(out);
+  for (const g of truth?.vipAtRisk || []) {
+    if (!v.segments.at_risk.includes(g.customer_id)) v.segments.at_risk.push(g.customer_id);
+  }
+  return v;
+}
+
+export async function marketingAnalyzer({ sales, customers, context }, truth) {
+  const out = await aiJSON(
+    'You are a marketing strategist for a Kenyan retail shop (Sheng/English). Use the ground-truth VIP-at-risk customers as win-back targets first. Return ONLY JSON: {"at_risk":[{"customer_id":..,"name":..,"risk":..}],"vip_churn":[{"customer_id":..,"name":..,"risk":..}],"campaign_ideas":[{"title":..,"audience":..,"message":..}],"scripts":[{"campaign":..,"script_body":..}],"image_prompts":[{"campaign":..,"image_prompt":..}]}',
+    { sales: (sales || []).slice(0, 100), customers: (customers || []).slice(0, 200), context, ground_truth: truth },
+    { at_risk: [], vip_churn: [], campaign_ideas: [], scripts: [], image_prompts: [] },
+    { temperature: 0.4 }
+  );
+  return validateMarketing(out);
 }
 
 // Log every agent output to ai_insights. passed_to_main col comes from
@@ -82,19 +189,10 @@ async function fetchShopData(shop_id) {
   return { sales, products, customers, tasks, message_logs, content_queue };
 }
 
-// --- Step2 analyzers (run in parallel) ---
+// --- (old duplicates removed; canonical analyzers are above) ---
 
-export async function salesAnalyzer({ sales, products }) {
-  const out = await llamaJSON(
-    'You are a retail sales analyst. Input: last 200 sales + product list. Return ONLY JSON: {"dead_stock":[{"product_id":..,"name":..,"reason":..}],"fast_movers":[{"product_id":..,"name":..,"qty_sold":..}],"seasonality":"...","suggested_discounts":[{"product_id":..,"percent":..,"reason":..}]}',
-    { sales: (sales || []).slice(0, 200), products: (products || []).slice(0, 200) },
-    { dead_stock: [], fast_movers: [], seasonality: '', suggested_discounts: [] }
-  );
-  return out;
-}
-
-export async function inventoryAnalyzer({ products }) {
-  const out = await llamaJSON(
+export async function inventoryAnalyzerOld({ products }) {
+  const out = await aiJSON(
     'You are an inventory analyst. Input: product list with stock_qty. Return ONLY JSON: {"low_stock":[{"product_id":..,"name":..,"stock_qty":..}],"overstock":[{"product_id":..,"name":..,"stock_qty":..}],"reorder":[{"product_id":..,"name":..,"suggested_qty":..}]}',
     { products: (products || []).slice(0, 300) },
     { low_stock: [], overstock: [], reorder: [] }
@@ -102,8 +200,8 @@ export async function inventoryAnalyzer({ products }) {
   return out;
 }
 
-export async function customerAnalyzer({ customers }) {
-  const out = await llamaJSON(
+export async function customerAnalyzerOld({ customers }) {
+  const out = await aiJSON(
     'You are a customer analyst for a Kenyan retail shop. Input: customers with total_spent, visit_count, points, rating (1-10). Return ONLY JSON: {"rating_updates":[{"customer_id":..,"rating":1-10,"reason":..}],"segments":{"vip":[],"at_risk":[],"new":[],"regular":[]},"points":[{"customer_id":..,"points_award":..,"reason":..}]}',
     { customers: (customers || []).slice(0, 300) },
     { rating_updates: [], segments: { vip: [], at_risk: [], new: [], regular: [] }, points: [] }
@@ -111,8 +209,8 @@ export async function customerAnalyzer({ customers }) {
   return out;
 }
 
-export async function marketingAnalyzer({ sales, customers, context }) {
-  const out = await llamaJSON(
+export async function marketingAnalyzerOld({ sales, customers, context }) {
+  const out = await aiJSON(
     'You are a marketing strategist for a Kenyan retail shop (Sheng/English). Return ONLY JSON: {"at_risk":[{"customer_id":..,"name":..,"reason":..}],"vip_churn":[{"customer_id":..,"name":..,"risk":..}],"campaign_ideas":[{"title":..,"audience":..,"message":..}],"scripts":[{"campaign":..,"script_body":..}],"image_prompts":[{"campaign":..,"image_prompt":..}]}',
     { sales: (sales || []).slice(0, 100), customers: (customers || []).slice(0, 200), context },
     { at_risk: [], vip_churn: [], campaign_ideas: [], scripts: [], image_prompts: [] }
@@ -120,133 +218,16 @@ export async function marketingAnalyzer({ sales, customers, context }) {
   return out;
 }
 
-// --- contentGeneratorAgent: 5 daily content_queue rows from marketing output ---
+// --- 10/10 content generator + supervisor + orchestrator: see server-agents-new.js (canonical) ---
+// Re-exported below; old unvalidated variants renamed *Old for backward compat.
 
-export async function contentGeneratorAgent(shop_id, marketing) {
-  const out = await llamaJSON(
-    'You are a content creator for a Kenyan retail shop. Create EXACTLY 5 daily posts. Return ONLY JSON: {"items":[{"platform":"whatsapp_status"|"tiktok_reels"|"instagram_carousel"|"sms_drop","title":..,"hook":..,"script_body":..}]}',
-    marketing,
-    { items: [] }
-  );
-  const rows = (out.items || []).slice(0, 5).map((c) => ({
-    shop_id,
-    platform: c.platform || 'whatsapp_status',
-    title: c.title || '',
-    hook: c.hook || '',
-    script_body: c.script_body || '',
-    status: 'generated',
-    curation_state: 'new_daily',
-  }));
-  if (!rows.length) return [];
-  return sb('content_queue', 'POST', rows).catch(() => []);
-}
+// --- 10/10 canonical implementations (re-exported from server-agents-new.js) ---
+export {
+  contentGeneratorAgent,
+  supervisorMerge,
+  runAnalyze,
+  learningAgent,
+  runLearningCycle,
+} from './server-agents-new.js';
+export { groundTruth } from './server-ai.js';
 
-// --- Step4 supervisor merge ---
-
-export async function supervisorMerge(shop_id, summaries, ragContext) {
-  const merged = await llamaJSON(
-    'You are the DukaAI supervisor merging 4 analyst reports into one Daily Brief (concise, Sheng/English friendly). Return ONLY JSON: {"daily_brief":"...","tasks":[{"type":..,"assigned_role":..,"user_notes":..,"ai_notes":..}],"content_suggestions":[{"platform":..,"title":..,"hook":..,"script_body":..}],"goal_suggestions":[{"title":..,"target_value":..}]}',
-    { ...summaries, rag_context: (ragContext || '').slice(0, 3000) },
-    { daily_brief: '', tasks: [], content_suggestions: [], goal_suggestions: [] }
-  );
-
-  const taskRows = (merged.tasks || []).map((t) => ({
-    shop_id, type: t.type || 'general', assigned_role: t.assigned_role || '',
-    status: 'pending', user_notes: t.user_notes || '', ai_notes: t.ai_notes || '',
-  }));
-  const contentRows = (merged.content_suggestions || []).map((c) => ({
-    shop_id, platform: c.platform || 'whatsapp_status', title: c.title || '',
-    hook: c.hook || '', script_body: c.script_body || '', status: 'generated',
-    curation_state: 'new_daily',
-  }));
-  const goalRows = (merged.goal_suggestions || []).map((g) => ({
-    shop_id, title: g.title || '', target_value: g.target_value || 0,
-    current_value: 0, status: 'active',
-  }));
-  const [tasks, content, goals] = await Promise.all([
-    taskRows.length ? sb('tasks', 'POST', taskRows).catch(() => []) : [],
-    contentRows.length ? sb('content_queue', 'POST', contentRows).catch(() => []) : [],
-    goalRows.length ? sb('goals', 'POST', goalRows).catch(() => []) : [],
-  ]);
-
-  // Step5: final brief, passed_to_main=true
-  const saved = await logInsight(shop_id, 'daily_brief', 'Daily Brief', merged.daily_brief || '(empty brief)', true);
-  return { brief: merged.daily_brief, tasks, content, goals, insight: saved };
-}
-
-// --- Main orchestrator: POST /api/analyze/run ---
-
-export async function runAnalyze(shop_id) {
-  // Step1: RAG context
-  let ragDocs = [];
-  try {
-    ragDocs = await ragService.search(shop_id, 'daily brief sales customers inventory stock', 10);
-  } catch { ragDocs = []; }
-  const ragContext = ragDocs.map((d) => d.content).join('\n---\n');
-
-  const data = await fetchShopData(shop_id);
-
-  // Step2: parallel analyzer calls
-  const [sales, inventory, customers, marketing] = await Promise.all([
-    salesAnalyzer(data),
-    inventoryAnalyzer(data),
-    customerAnalyzer(data),
-    marketingAnalyzer({ ...data, context: ragContext.slice(0, 2000) }),
-  ]);
-
-  // Step3: each returns summary JSON -> log to ai_insights
-  await Promise.all([
-    logInsight(shop_id, 'sales_analysis', 'Sales analysis', JSON.stringify(sales)),
-    logInsight(shop_id, 'inventory_analysis', 'Inventory analysis', JSON.stringify(inventory)),
-    logInsight(shop_id, 'customer_analysis', 'Customer analysis', JSON.stringify(customers)),
-    logInsight(shop_id, 'marketing_analysis', 'Marketing analysis', JSON.stringify(marketing)),
-  ]);
-
-  // contentGeneratorAgent runs after marketing
-  const generated = await contentGeneratorAgent(shop_id, marketing);
-  await logInsight(shop_id, 'content_generated', 'Daily content generated', `Created ${generated.length} content_queue items`);
-
-  // Step4+5: supervisor merge + persist + final insight
-  const result = await supervisorMerge(shop_id, { sales, inventory, customers, marketing }, ragContext);
-  return { shop_id, summaries: { sales, inventory, customers, marketing }, generated, ...result };
-}
-
-// --- learningAgent: cron 6h — reads feedback, embeds learnings ---
-
-export async function learningAgent(shop_id) {
-  const data = await fetchShopData(shop_id);
-  const feedback = {
-    message_logs: (data.message_logs || []).slice(0, 50),
-    task_notes: (data.tasks || []).map((t) => ({ user_notes: t.user_notes, ai_notes: t.ai_notes, status: t.status })).slice(0, 50),
-    content_feedback: (data.content_queue || [])
-      .filter((c) => ['selected', 'discarded'].includes(c.status))
-      .map((c) => ({ title: c.title, status: c.status })).slice(0, 50),
-  };
-  const out = await llamaJSON(
-    'You are a learning agent. From chat logs, task notes and content feedback (selected=good, discarded=bad), extract durable learnings. Return ONLY JSON: {"learnings":["..."]}',
-    feedback,
-    { learnings: [] }
-  );
-  const learnings = (out.learnings || []).slice(0, 20);
-  for (const l of learnings) {
-    try {
-      await ragService.indexWrite(shop_id, 'learning', String(l), 'learning');
-    } catch { /* never fail cron on one write */ }
-  }
-  await logInsight(shop_id, 'learning', 'Learning cycle', `Embedded ${learnings.length} learnings into knowledge_base`);
-  return { shop_id, embedded: learnings.length };
-}
-
-export async function runLearningCycle(shop_id) {
-  if (shop_id) return learningAgent(shop_id);
-  const shops = await sb('shops', 'GET').catch(() => []);
-  const results = [];
-  for (const s of shops) {
-    try {
-      results.push(await learningAgent(s.id));
-    } catch (e) {
-      results.push({ shop_id: s.id, error: String((e && e.message) || e) });
-    }
-  }
-  return results;
-}

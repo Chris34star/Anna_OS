@@ -4,11 +4,9 @@
  * search(shop_id, query, limit=10): pgvector similarity 70% + keyword 30%.
  * Never touches schema. Uses Supabase REST + match_knowledge_base RPC (see supabase-rag-migration.sql).
  */
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const GROQ_API_KEY = process.env.AI_API_KEY || process.env.GROQ_API_KEY || '';
-// All agents use Meta Musepark 1.3 (override via AI_MODEL env).
-const AI_MODEL = process.env.AI_MODEL || 'meta-musepark-1.3';
+import { aiJSON, AI_MODEL, truncateStr } from './server-ai.js';
+const SB_URL = () => process.env.SUPABASE_URL || '';
+const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 let pipePromise = null;
 async function getPipe() {
@@ -44,11 +42,11 @@ export async function embedText(text) {
 const toLit = (v) => `[${v.map((x) => Number(x).toFixed(6)).join(',')}]`;
 
 async function sb(path, method = 'GET', body, query = '') {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}${query}`, {
+  const r = await fetch(`${SB_URL()}/rest/v1/${path}${query}`, {
     method,
     headers: {
-      apikey: SERVICE_KEY,
-      Authorization: `Bearer ${SERVICE_KEY}`,
+      apikey: SB_KEY(),
+      Authorization: `Bearer ${SB_KEY()}`,
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
     },
@@ -102,9 +100,9 @@ export async function search(shop_id, query, limit = 10) {
   // 1) vector matches via RPC (falls back to empty if RPC missing)
   let vec = [];
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/match_knowledge_base`, {
+    const r = await fetch(`${SB_URL()}/rest/v1/rpc/match_knowledge_base`, {
       method: 'POST',
-      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+      headers: { apikey: SB_KEY(), Authorization: `Bearer ${SB_KEY()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ p_shop_id: shop_id, p_embedding: toLit(emb), p_limit: limit }),
     });
     if (r.ok) vec = await r.json();
@@ -132,39 +130,24 @@ export async function search(shop_id, query, limit = 10) {
   return [...scored.values()].sort((a, b) => b._score - a._score).slice(0, limit);
 }
 
-/** RAG query: search + Meta Musepark 1.3 (env AI_MODEL) answer, stores chat as ai_chat. */
+/** RAG query: search + Meta Musepark 1.3 (env AI_MODEL) answer, stores chat as ai_chat.
+ *  answerQuery never throws: grounding fallback always available. */
 export async function answerQuery(shop_id, question) {
-  const docs = await search(shop_id, question, 10);
+  const q = String(question || '').slice(0, 1000);
+  const docs = await search(shop_id, q, 10);
   const context = docs.map((d) => d.content).join('\n---\n');
-  let answer = '';
-  if (GROQ_API_KEY) {
-    try {
-      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_API_KEY}` },
-        body: JSON.stringify({
-          model: 'llama-3.1-70b-versatile',
-          temperature: 0.3,
-          messages: [
-            { role: 'system', content: 'You are DukaAI that knows this shop deeply use context. Answer using ONLY the provided shop context when possible; be concise, Sheng/English friendly.' },
-            { role: 'user', content: `Context:\n${context || '(no context yet)'}\n\nQuestion: ${question}` },
-          ],
-        }),
-      });
-      if (r.ok) {
-        const j = await r.json();
-        answer = j.choices?.[0]?.message?.content || '';
-      }
-    } catch { /* fallback below */ }
-  }
-  if (!answer) {
-    answer = context
-      ? `Based on your shop records:\n${docs.slice(0, 3).map((d) => `- ${d.content}`).join('\n')}`
-      : 'No shop context found yet. Add sales, customers, or notes first.';
-  }
+  const out = await aiJSON(
+    'You are DukaAI that knows this shop deeply use context. Answer using ONLY the provided shop context when possible; be concise, Sheng/English friendly. Return ONLY JSON: {"answer":"..."}',
+    { context: truncateStr(context, 4000) || '(no context yet)', question: q },
+    { answer: '' },
+    { temperature: 0.3 }
+  );
+  const answer = (out.answer || '').trim() || (context
+    ? `Based on your shop records:\n${docs.slice(0, 3).map((d) => `- ${d.content}`).join('\n')}`
+    : 'No shop context found yet. Add sales, customers, or notes first.');
   // store AI chat (fire-and-forget safe)
   try {
-    await indexWrite(shop_id, 'ai_chat', { question, answer }, 'ai_chat');
+    await indexWrite(shop_id, 'ai_chat', { question: q, answer }, 'ai_chat');
   } catch { /* never fail the query on logging */ }
   return { context, answer, docs };
 }

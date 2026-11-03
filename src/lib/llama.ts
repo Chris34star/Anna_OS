@@ -27,6 +27,9 @@ export interface AnalysisPayload {
 const GROQ_API_KEY_STORAGE = 'anna_ai_api_key';
 // Model used by all agents. Override with VITE_AI_MODEL.
 export const AI_MODEL = (import.meta as any).env?.VITE_AI_MODEL || 'meta-musepark-1.3';
+// Endpoint + timeout mirror the server client (server-ai.js).
+const AI_BASE_URL = (import.meta as any).env?.VITE_AI_BASE_URL || 'https://api.groq.com/openai/v1/chat/completions';
+const AI_TIMEOUT_MS = 25000;
 
 export function getGroqApiKey(): string {
   if (typeof window === 'undefined') return '';
@@ -68,22 +71,30 @@ Return ONLY valid JSON matching this exact schema:
 
   if (activeKey) {
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${activeKey}`,
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-70b-versatile',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage },
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.2,
-        }),
-      });
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), AI_TIMEOUT_MS);
+      let response: Response;
+      try {
+        response = await fetch(AI_BASE_URL, {
+          method: 'POST',
+          signal: ctrl.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${activeKey}`,
+          },
+          body: JSON.stringify({
+            model: AI_MODEL,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userMessage },
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0.2,
+          }),
+        });
+      } finally {
+        clearTimeout(t);
+      }
 
       if (response.ok) {
         const data = await response.json();
@@ -193,19 +204,24 @@ Identify:
 3. Sales Strategy & Bundle: cross-sell pattern (e.g. stiletto heels paired with quilted handbags or silk scarves).
 Return valid JSON with an "insights" array of 3 distinct, high-impact items.`;
 
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${activeKey}`,
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-70b-versatile',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            {
-              role: 'user',
-              content: `Here is the boutique store data summary:
+      const ctrl2 = new AbortController();
+      const t2 = setTimeout(() => ctrl2.abort(), AI_TIMEOUT_MS);
+      let response: Response;
+      try {
+        response = await fetch(AI_BASE_URL, {
+          method: 'POST',
+          signal: ctrl2.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${activeKey}`,
+          },
+          body: JSON.stringify({
+            model: AI_MODEL,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              {
+                role: 'user',
+                content: `Here is the boutique store data summary:
 - Dead stock detected: ${deadStockQty} units of ${deadStockItem?.name || 'Pleated Chiffon Dresses'} worth KES ${deadStockValue.toLocaleString()}.
 - At-risk VIPs: ${vipCount} customers spent >KES 50,000 with no visit in ~${avgInactiveDays} days.
 - Recent sales patterns: Handbags and stiletto heels frequently bundled with dresses on weekends.`,
@@ -213,14 +229,27 @@ Return valid JSON with an "insights" array of 3 distinct, high-impact items.`;
           ],
           response_format: { type: 'json_object' },
           temperature: 0.2,
-        }),
-      });
+          }),
+        });
+      } finally {
+        clearTimeout(t2);
+      }
 
       if (response.ok) {
         const result = await response.json();
         const content = result.choices?.[0]?.message?.content;
         if (content) {
-          const parsed = JSON.parse(content);
+          let parsed: any = null;
+          try {
+            parsed = JSON.parse(content);
+          } catch {
+            const s = String(content);
+            const a = s.indexOf('{');
+            const b = s.lastIndexOf('}');
+            if (a >= 0 && b > a) {
+              try { parsed = JSON.parse(s.slice(a, b + 1)); } catch { parsed = null; }
+            }
+          }
           if (Array.isArray(parsed.insights) && parsed.insights.length >= 3) {
             return parsed.insights.map((item: any, idx: number) => ({
               id: `insight-llama-${idx + 1}`,

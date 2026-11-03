@@ -1,17 +1,34 @@
 /**
- * Goals + Content + Task-notes endpoints (Llama 3.1 70B via Groq, RAG-backed).
+ * Goals + Content + Task-notes endpoints (Meta Musepark 1.3, RAG-backed).
  * Mounted by server-shop-init.js. All writes also indexed to knowledge_base
  * (source_type goal / content_feedback / task_user_note) so AI reads them next time.
  */
 import { ragService } from './server-rag-service.js';
 import { contentGeneratorAgent, marketingAnalyzer } from './server-agents.js';
 import { checkSubscription } from './server-payments.js';
+import { aiJSON } from './server-ai.js';
 
 const SB_URL = () => process.env.SUPABASE_URL || '';
 const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const GROQ_KEY = () => process.env.AI_API_KEY || process.env.GROQ_API_KEY || '';
-// All agents use Meta Musepark 1.3 (override via AI_MODEL env).
-const AI_MODEL = () => process.env.AI_MODEL || 'meta-musepark-1.3';
+
+async function llamaExtractGoal(text) {
+  const fallback = { title: String(text).slice(0, 120), target_value: 500000 };
+  // aiJSON already falls back when no key; regex enriches the fallback.
+  const parsed = await aiJSON(
+    'Extract a retail goal from chat. Return ONLY JSON: {"title":"...","target_value":number}. E.g. "Set goal to reach 500k" -> {"title":"Reach 500k revenue","target_value":500000}.',
+    String(text).slice(0, 1000),
+    {}
+  );
+  if (parsed && parsed.title) {
+    return {
+      title: String(parsed.title).slice(0, 120),
+      target_value: Number.isFinite(Number(parsed.target_value)) ? Number(parsed.target_value) : fallback.target_value,
+    };
+  }
+  const m = String(text).match(/([\d,.]+)\s*k/i);
+  if (m) fallback.target_value = Number(m[1].replace(/[,.]/g, '')) * 1000;
+  return fallback;
+}
 
 async function sb(path, method = 'GET', body, query = '') {
   const r = await fetch(`${SB_URL()}/rest/v1/${path}${query}`, {
@@ -26,35 +43,6 @@ async function sb(path, method = 'GET', body, query = '') {
   });
   if (!r.ok) throw new Error(`supabase ${method} ${path}: ${r.status} ${await r.text()}`);
   return r.json();
-}
-
-async function llamaExtractGoal(text) {
-  const fallback = { title: String(text).slice(0, 120), target_value: 500000 };
-  if (!GROQ_KEY()) {
-    const m = String(text).match(/([\d,.]+)\s*k/i);
-    if (m) fallback.target_value = Number(m[1].replace(/[,.]/g, '')) * 1000;
-    return fallback;
-  }
-  try {
-    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY()}` },
-      body: JSON.stringify({
-        model: AI_MODEL(),
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: 'Extract a retail goal from chat. Return ONLY JSON: {"title":"...","target_value":number}. E.g. "Set goal to reach 500k" -> {"title":"Reach 500k revenue","target_value":500000}.' },
-          { role: 'user', content: String(text).slice(0, 1000) },
-        ],
-      }),
-    });
-    if (!r.ok) return fallback;
-    const j = await r.json();
-    return JSON.parse(j.choices?.[0]?.message?.content || 'null') ?? fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 export function mountGoalsContentTasks(app) {

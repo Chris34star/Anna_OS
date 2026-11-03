@@ -17,6 +17,7 @@ import { mountGoalsContentTasks } from './server-goals-content.js';
 import { mountPosRatingMessaging } from './server-pos-messaging.js';
 import { checkSubscription, mountPayments } from './server-payments.js';
 import { mountFrontendAPIs } from './server-frontend.js';
+import { aiJSON } from './server-ai.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -24,7 +25,6 @@ app.use(express.json());
 
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
 function loadTemplate(key) {
   try {
@@ -33,32 +33,16 @@ function loadTemplate(key) {
   } catch { return null; }
 }
 
-// Meta Musepark 1.3 via Groq: pick template key from onboarding answers.
+// Meta Musepark 1.3 (server-ai.js): pick template key from onboarding answers, validated.
 async function pickTemplate(answers) {
   const text = typeof answers === 'string' ? answers : JSON.stringify(answers);
-  if (GROQ_API_KEY) {
-    try {
-      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_API_KEY}` },
-        body: JSON.stringify({
-          model: 'llama-3.1-70b-versatile',
-          temperature: 0.2,
-          response_format: { type: 'json_object' },
-          messages: [
-            { role: 'system', content: 'Pick ONE template key for this retail shop. Return ONLY JSON: {"template_key":"electronics"|"supermarket"|"general-retail","shop_name":"string"}. Electronics/phones/repairs->electronics. Grocery/food->supermarket. Else general-retail.' },
-            { role: 'user', content: text },
-          ],
-        }),
-      });
-      if (r.ok) {
-        const j = await r.json();
-        const parsed = JSON.parse(j.choices?.[0]?.message?.content || '{}');
-        if (['electronics', 'supermarket', 'general-retail'].includes(parsed.template_key)) return parsed;
-      }
-    } catch { /* heuristic fallback */ }
-  }
-  const lower = text.toLowerCase();
+  const parsed = await aiJSON(
+    'Pick ONE template key for this retail shop. Return ONLY JSON: {"template_key":"electronics"|"supermarket"|"general-retail","shop_name":"string"}. Electronics/phones/repairs->electronics. Grocery/food->supermarket. Else general-retail.',
+    text,
+    {}
+  );
+  if (parsed && ['electronics', 'supermarket', 'general-retail'].includes(parsed.template_key)) return parsed;
+  const lower = String(text).toLowerCase();
   if (lower.includes('electronic') || lower.includes('phone') || lower.includes('repair') || lower.includes('tv')) return { template_key: 'electronics' };
   if (lower.includes('supermarket') || lower.includes('grocery') || lower.includes('food')) return { template_key: 'supermarket' };
   return { template_key: 'general-retail' };
@@ -141,17 +125,28 @@ app.post('/api/rag/index', async (req, res) => {
   }
 });
 
-// Multi-agent supervisor: POST /api/analyze/run { shop_id } -> Daily Brief (plan-gated)
+// Multi-agent supervisor: POST /api/analyze/run { shop_id, briefOnly? } -> Daily Brief (plan-gated)
+// briefOnly=true: cheap mode — supervisor brief only, no 4 insight logs, no content gen.
 app.post('/api/analyze/run', checkSubscription, async (req, res) => {
   try {
-    const { shop_id = null } = req.body || {};
+    const { shop_id = null, briefOnly = false } = req.body || {};
     if (!shop_id) return res.status(400).json({ error: 'shop_id required' });
-    const result = await runAnalyze(shop_id);
+    const result = await runAnalyze(shop_id, { briefOnly: Boolean(briefOnly) });
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: String((e && e.message) || e) });
   }
 });
+
+// Agent observability: GET /api/agents/status -> model, key presence, env knobs.
+app.get('/api/agents/status', (_req, res) => res.json({
+  ok: true,
+  model: process.env.AI_MODEL || 'meta-musepark-1.3',
+  key_present: Boolean(process.env.AI_API_KEY || process.env.GROQ_API_KEY),
+  base_url: process.env.AI_BASE_URL || 'https://api.groq.com/openai/v1/chat/completions',
+  timeout_ms: Number(process.env.AI_TIMEOUT_MS || 25000),
+  max_retries: Number(process.env.AI_MAX_RETRIES || 2),
+}));
 
 // learningAgent cron 6h: POST /api/learn/run { shop_id? } (empty = all shops)
 app.post('/api/learn/run', async (req, res) => {
@@ -169,11 +164,6 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 mountGoalsContentTasks(app);
 mountPosRatingMessaging(app);
 mountPayments(app);
-mountFrontendAPIs(app);
-
-const port = Number(process.env.PORT || 8080);
-app.listen(port, () => console.log(`shop-init listening on :${port}`));
-pp);
 mountFrontendAPIs(app);
 
 const port = Number(process.env.PORT || 8080);
