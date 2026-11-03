@@ -533,9 +533,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, defaultTa
             <div className="space-y-4">
               <div className="p-3.5 bg-neutral-950 border border-neutral-800 rounded-xl space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-neutral-200">Active Llama Engine</span>
+                  <span className="text-xs font-bold text-neutral-200">Active AI Engine</span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-950 border border-purple-800/40 text-purple-300">
-                    llama-3.1-70b-versatile
+                    meta-musepark-1.3
                   </span>
                 </div>
                 <p className="text-[11px] text-neutral-400">
@@ -545,7 +545,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, defaultTa
 
               <form onSubmit={handleSaveKey} className="space-y-2">
                 <label className="block text-xs font-semibold text-neutral-300 uppercase tracking-wider">
-                  Groq API Key (Optional)
+                  AI API Key (Optional)
                 </label>
                 <div className="flex gap-2">
                   <input

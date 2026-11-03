@@ -1,5 +1,5 @@
 /**
- * Multi-agent supervisor architecture (Llama 3.1 70B tool-calling via Groq).
+ * Multi-agent supervisor architecture (Meta Musepark 1.3 tool-calling).
  * NOTE: harness has no mkdir tool, so agents live at repo root as server-agents.js.
  * To get /agents layout: mkdir -p agents && mv server-agents.js agents/supervisorAgent.js
  * and update the import in server-shop-init.js. All agent entry points below stay the same.
@@ -13,7 +13,9 @@ import { ragService } from './server-rag-service.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const GROQ_API_KEY = process.env.AI_API_KEY || process.env.GROQ_API_KEY || '';
+// All agents use Meta Musepark 1.3 (override via AI_MODEL env).
+const AI_MODEL = process.env.AI_MODEL || 'meta-musepark-1.3';
 
 async function sb(path, method = 'GET', body, query = '') {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}${query}`, {
@@ -30,7 +32,7 @@ async function sb(path, method = 'GET', body, query = '') {
   return r.json();
 }
 
-// Llama 3.1 70B JSON tool call with safe fallback.
+// Meta Musepark 1.3 JSON tool call with safe fallback.
 async function llamaJSON(system, user, fallback) {
   if (!GROQ_API_KEY) return fallback;
   try {
@@ -38,7 +40,7 @@ async function llamaJSON(system, user, fallback) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_API_KEY}` },
       body: JSON.stringify({
-        model: 'llama-3.1-70b-versatile',
+        model: AI_MODEL,
         temperature: 0.2,
         response_format: { type: 'json_object' },
         messages: [

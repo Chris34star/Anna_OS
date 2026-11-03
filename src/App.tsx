@@ -43,6 +43,15 @@ function AppContent() {
     return <LandingPageView />;
   }
 
+  // Setup chats run alone: no sidebar modules, header, or chat bubble —
+  // the AI builds the modules, so they only appear after setup finishes.
+  if (activeTab === 'demo-setup') {
+    return <DemoSetupView />;
+  }
+  if (activeTab === 'onboarding') {
+    return <OnboardingView />;
+  }
+
   return (
     <div className="flex h-screen w-full bg-[#08090d] text-neutral-100 overflow-hidden font-sans antialiased selection:bg-emerald-500/20 selection:text-emerald-300">
       {/* Sidebar Navigation (Hidden on mobile by default, toggled via hamburger drawer) */}

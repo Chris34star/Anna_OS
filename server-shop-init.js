@@ -4,7 +4,7 @@
  * shop_navs (is_approved=false) and users_roles. Never touches schema.
  *
  * Env (server-side only, never VITE_*):
- *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GROQ_API_KEY, PORT
+ *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AI_API_KEY (or GROQ_API_KEY), AI_MODEL, PORT
  * Frontend uses import.meta.env.VITE_SUPABASE_URL only (src/lib/supabase.ts).
  */
 import express from 'express';
@@ -33,7 +33,7 @@ function loadTemplate(key) {
   } catch { return null; }
 }
 
-// Llama 3.1 70B via Groq: pick template key from onboarding answers.
+// Meta Musepark 1.3 via Groq: pick template key from onboarding answers.
 async function pickTemplate(answers) {
   const text = typeof answers === 'string' ? answers : JSON.stringify(answers);
   if (GROQ_API_KEY) {
@@ -169,6 +169,11 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 mountGoalsContentTasks(app);
 mountPosRatingMessaging(app);
 mountPayments(app);
+mountFrontendAPIs(app);
+
+const port = Number(process.env.PORT || 8080);
+app.listen(port, () => console.log(`shop-init listening on :${port}`));
+pp);
 mountFrontendAPIs(app);
 
 const port = Number(process.env.PORT || 8080);

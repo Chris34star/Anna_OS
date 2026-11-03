@@ -215,7 +215,7 @@ export const OnboardingView: React.FC = () => {
               </div>
               <div>
                 <span className="text-xs font-semibold text-neutral-200 block">Anna Boutique Agent</span>
-                <span className="text-[10px] text-neutral-500 font-mono">llama-3.1-70b-versatile</span>
+                <span className="text-[10px] text-neutral-500 font-mono">meta-musepark-1.3</span>
               </div>
             </div>
             <span className="text-[11px] font-mono text-emerald-400">Fixed Postgres Schema</span>

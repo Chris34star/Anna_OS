@@ -23,8 +23,10 @@ export interface AnalysisPayload {
   shop_context?: ShopContextAnswers;
 }
 
-// Storage key for optional user-provided Groq API Key
-const GROQ_API_KEY_STORAGE = 'duka_ai_groq_api_key';
+// Storage key for optional user-provided AI API Key (Meta Musepark 1.3)
+const GROQ_API_KEY_STORAGE = 'anna_ai_api_key';
+// Model used by all agents. Override with VITE_AI_MODEL.
+export const AI_MODEL = (import.meta as any).env?.VITE_AI_MODEL || 'meta-musepark-1.3';
 
 export function getGroqApiKey(): string {
   if (typeof window === 'undefined') return '';
@@ -320,7 +322,7 @@ export async function generateWhatsAppDraft(
           Authorization: `Bearer ${activeKey}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.1-70b-versatile',
+          model: AI_MODEL,
           messages: [
             {
               role: 'system',
@@ -355,4 +357,6 @@ export async function generateWhatsAppDraft(
   }
 
   return `Habari ${recipientName}! 👜 Special styling bundle at Amani Luxe Boutique: Pick up any evening dress or footwear today and add an Italian Quilted Leather Crossbody Bag for just KES 4,500 (save KES 700)! Pass by our store or reply to order via M-Pesa courier delivery. Have a fabulous day! ✨`;
+}
+ delivery. Have a fabulous day! ✨`;
 }

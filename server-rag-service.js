@@ -1,11 +1,14 @@
 /**
  * RAG service: Xenova/all-MiniLM-L6-v2 (384-dim) embeddings + hybrid search.
+ * Answers via Meta Musepark 1.3 (env AI_MODEL).
  * search(shop_id, query, limit=10): pgvector similarity 70% + keyword 30%.
  * Never touches schema. Uses Supabase REST + match_knowledge_base RPC (see supabase-rag-migration.sql).
  */
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const GROQ_API_KEY = process.env.AI_API_KEY || process.env.GROQ_API_KEY || '';
+// All agents use Meta Musepark 1.3 (override via AI_MODEL env).
+const AI_MODEL = process.env.AI_MODEL || 'meta-musepark-1.3';
 
 let pipePromise = null;
 async function getPipe() {
@@ -129,7 +132,7 @@ export async function search(shop_id, query, limit = 10) {
   return [...scored.values()].sort((a, b) => b._score - a._score).slice(0, limit);
 }
 
-/** RAG query: search + Llama 3.1 70B (Groq) answer, stores chat as ai_chat. */
+/** RAG query: search + Meta Musepark 1.3 (env AI_MODEL) answer, stores chat as ai_chat. */
 export async function answerQuery(shop_id, question) {
   const docs = await search(shop_id, question, 10);
   const context = docs.map((d) => d.content).join('\n---\n');

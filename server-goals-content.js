@@ -9,7 +9,9 @@ import { checkSubscription } from './server-payments.js';
 
 const SB_URL = () => process.env.SUPABASE_URL || '';
 const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const GROQ_KEY = () => process.env.GROQ_API_KEY || '';
+const GROQ_KEY = () => process.env.AI_API_KEY || process.env.GROQ_API_KEY || '';
+// All agents use Meta Musepark 1.3 (override via AI_MODEL env).
+const AI_MODEL = () => process.env.AI_MODEL || 'meta-musepark-1.3';
 
 async function sb(path, method = 'GET', body, query = '') {
   const r = await fetch(`${SB_URL()}/rest/v1/${path}${query}`, {
@@ -38,7 +40,7 @@ async function llamaExtractGoal(text) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY()}` },
       body: JSON.stringify({
-        model: 'llama-3.1-70b-versatile',
+        model: AI_MODEL(),
         temperature: 0.2,
         response_format: { type: 'json_object' },
         messages: [
