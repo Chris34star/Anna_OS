@@ -125,12 +125,12 @@ export const DemoSetupView: React.FC = () => {
     }
     setBuildIdx(BUILD_STEPS.length);
     await seeding;
-    // Run AI analysis so the demo dashboard opens fully analyzed
+    // AI chat + setup done: go to Analyzer first (running animation), analysed data + tasks render there.
+    setActiveTab('analyzer');
     try {
       await runAnalysis();
     } catch {}
     await sleep(400);
-    setActiveTab('dashboard');
   };
 
   // Animated mouse: glides to the Approve button and clicks it

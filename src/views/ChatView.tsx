@@ -247,10 +247,10 @@ Ready to run analysis with these fresh ground-truth inputs.`,
   };
 
   const handleLaunchAnalysisWithContext = async () => {
-    setIsProcessing(true);
-    await runAnalysis(contextExtracted || undefined);
-    setIsProcessing(false);
+    // Go to Analyzer FIRST so the "Running analysis" animation is visible, then run.
     setActiveTab('analyzer');
+    setIsProcessing(false);
+    await runAnalysis(contextExtracted || undefined);
   };
 
   return (

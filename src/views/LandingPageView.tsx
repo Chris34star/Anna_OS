@@ -47,15 +47,19 @@ export const LandingPageView: React.FC = () => {
     setActiveTab('demo-setup');
   };
 
+  // Asstensha Google Auth: real-store entry — requires store name+email, then opens AI setup chat (onboarding), never demo.
   const handleSocialSignIn = async (provider: 'google' | 'facebook' | 'apple' | 'email') => {
     setAuthLoading(provider);
     await new Promise((r) => setTimeout(r, 600));
 
-    if (provider === 'email' && authEmail.trim()) {
-      signInWithSocial('email', authEmail.trim(), authName.trim() || 'Store Owner');
-    } else {
-      signInWithSocial(provider);
+    // Real store needs owner identity first — use the form values for every provider (incl. Google).
+    const email = authEmail.trim();
+    const name = authName.trim() || 'Store Owner';
+    if (!email) {
+      setAuthLoading(null);
+      return; // keep modal open so user enters store email + name
     }
+    signInWithSocial(provider, email, name);
 
     setAuthLoading(null);
     setShowAuthModal(false);
@@ -106,7 +110,7 @@ export const LandingPageView: React.FC = () => {
           {authUser ? (
             <div className="flex items-center gap-2">
               <button
-                onClick={handleLaunchDemo}
+                onClick={() => { setIsLandingPage(false); setActiveTab('onboarding'); }}
                 className="px-3 py-1.5 text-xs font-bold text-emerald-400 bg-neutral-900 border border-neutral-800 hover:border-emerald-500/40 rounded-xl transition-all cursor-pointer"
               >
                 Go to {authUser.name.split(' ')[0]}'s Store →
