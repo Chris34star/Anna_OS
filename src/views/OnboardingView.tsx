@@ -30,7 +30,7 @@ interface ChatMessage {
 }
 
 export const OnboardingView: React.FC = () => {
-  const { shop, setShop, setActiveTab, authUser, seedDemoData, runAnalysis } = useStore();
+  const { shop, setShop, setActiveTab, authUser, seedDemoData } = useStore();
 
   const ownerName = authUser?.name || 'Chrisandus Odhiambo';
   const ownerEmail = authUser?.email || 'chrisandusodhiambo80@gmail.com';
@@ -123,11 +123,9 @@ export const OnboardingView: React.FC = () => {
         }
       } catch {}
     }
-    // Real AI flow: AI has configured the shop from chat → show "Running analysis" animation on Analyzer, then display insights + auto tasks.
+    // Real AI flow: AI configured the shop from chat → land on Analyzer BLANK.
+    // User must click "Run AI Analysis" to populate tasks/insights/goals.
     setActiveTab('analyzer');
-    try {
-      await runAnalysis();
-    } catch {}
   };
 
   const handleLaunchWithBoutiqueCatalog = async () => {

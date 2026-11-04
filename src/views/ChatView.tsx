@@ -247,10 +247,9 @@ Ready to run analysis with these fresh ground-truth inputs.`,
   };
 
   const handleLaunchAnalysisWithContext = async () => {
-    // Go to Analyzer FIRST so the "Running analysis" animation is visible, then run.
+    // Go to Analyzer BLANK — user clicks "Run AI Analysis" to populate.
     setActiveTab('analyzer');
     setIsProcessing(false);
-    await runAnalysis(contextExtracted || undefined);
   };
 
   return (

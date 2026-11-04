@@ -277,17 +277,25 @@ export const GoalsView: React.FC = () => {
           {activeGoals.length === 0 ? (
             <div className="p-12 text-center border border-dashed border-neutral-800 rounded-3xl bg-neutral-900/30">
               <Target className="w-10 h-10 text-neutral-600 mx-auto mb-3" />
-              <h3 className="text-base font-bold text-neutral-200">No active goals currently set</h3>
+              <h3 className="text-base font-bold text-neutral-200">No goals yet — run the AI Analyzer</h3>
               <p className="text-xs text-neutral-400 max-w-md mx-auto mt-1 mb-4">
-                Define your weekly sales target, dead stock recovery target, or VIP customer win-back quota to accelerate growth.
+                After demo setup, open Anna Analyzer and click "Run AI Analysis". Goals will be generated automatically — or create one manually below.
               </p>
-              <button
-                onClick={() => setShowNewGoalModal(true)}
-                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-950"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Create First Goal</span>
-              </button>
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setActiveTab('analyzer')}
+                  className="px-4 py-2 text-xs font-bold text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-800/40 rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Go to Anna Analyzer</span>
+                </button>
+                <button
+                  onClick={() => setShowNewGoalModal(true)}
+                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-950"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create Goal Manually</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -43,7 +43,7 @@ const BUILD_STEPS = [
 ];
 
 export const DemoSetupView: React.FC = () => {
-  const { seedDemoData, runAnalysis, setActiveTab } = useStore();
+  const { seedDemoData, setActiveTab } = useStore();
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [aiTyping, setAiTyping] = useState(false);
   const [typedUserId, setTypedUserId] = useState<string | null>(null);
@@ -125,11 +125,8 @@ export const DemoSetupView: React.FC = () => {
     }
     setBuildIdx(BUILD_STEPS.length);
     await seeding;
-    // AI chat + setup done: go to Analyzer first (running animation), analysed data + tasks render there.
+    // Go to Analyzer BLANK — user must click "Run AI Analysis" to fill tasks/insights/goals.
     setActiveTab('analyzer');
-    try {
-      await runAnalysis();
-    } catch {}
     await sleep(400);
   };
 

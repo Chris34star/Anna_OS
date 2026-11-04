@@ -135,7 +135,8 @@ export const AnalyzerView: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Value Cards */}
+      {/* KPI Value Cards — only after analysis has produced insights */}
+      {insights.length > 0 && (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center justify-between">
           <div className="space-y-0.5">
@@ -176,6 +177,7 @@ export const AnalyzerView: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Strategic Goals In Play Banner */}
       {goals.length > 0 && (

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  BrainCircuit,
   Briefcase,
   Check,
   CheckCircle2,
@@ -199,6 +200,22 @@ export const TasksView: React.FC = () => {
       </div>
 
       {/* Task Cards Grid */}
+      {tasks.length === 0 ? (
+        <div className="p-12 text-center border border-dashed border-neutral-800 rounded-3xl bg-neutral-900/30">
+          <BrainCircuit className="w-10 h-10 text-neutral-600 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-neutral-200">No tasks yet — run the AI Analyzer</h3>
+          <p className="text-xs text-neutral-400 max-w-md mx-auto mt-1 mb-4">
+            After demo setup, open Anna Analyzer and click "Run AI Analysis". Your tasks, goals and insights will appear here automatically.
+          </p>
+          <button
+            onClick={() => setActiveTab('analyzer')}
+            className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-950"
+          >
+            <BrainCircuit className="w-3.5 h-3.5" />
+            <span>Go to Anna Analyzer</span>
+          </button>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 gap-3">
         {filteredTasks.map((task) => {
           const isPending = task.status === 'pending';
@@ -300,6 +317,7 @@ export const TasksView: React.FC = () => {
           );
         })}
       </div>
+      )}
 
       {/* New Task Modal */}
       {showNewTaskModal && (

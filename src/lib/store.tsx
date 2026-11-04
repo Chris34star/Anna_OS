@@ -1,13 +1,10 @@
 import React, { createContext, useContext, useEffect, useState, useTransition } from 'react';
 import {
   DEMO_PRODUCTS,
-  INITIAL_APPOINTMENTS,
   INITIAL_CONNECTORS,
   INITIAL_CONTENT_IDEAS,
-  INITIAL_GOALS,
   INITIAL_ROLES,
   INITIAL_SHOP,
-  INITIAL_TASKS,
   INITIAL_TEAM_MEMBERS,
   generateAllCustomers,
   generateAllSales,
@@ -138,8 +135,8 @@ const STORAGE_KEYS = {
   PRODUCTS: 'anna_boutique_v4_products',
   CUSTOMERS: 'anna_boutique_v4_customers',
   SALES: 'anna_boutique_v4_sales',
-  TASKS: 'anna_boutique_v4_tasks',
-  INSIGHTS: 'anna_boutique_v4_insights',
+  TASKS: 'anna_boutique_v5_tasks',
+  INSIGHTS: 'anna_boutique_v5_insights',
   ROLES: 'anna_boutique_v4_roles',
   TEAM: 'anna_boutique_v4_team',
   CURRENT_USER: 'anna_boutique_v4_current_user',
@@ -148,8 +145,8 @@ const STORAGE_KEYS = {
   CONTEXT: 'anna_boutique_v4_context',
   CONNECTORS: 'anna_boutique_v4_connectors',
   CONTENT: 'anna_boutique_v4_content',
-  GOALS: 'anna_boutique_v4_goals',
-  APPOINTMENTS: 'anna_boutique_v4_appointments',
+  GOALS: 'anna_boutique_v5_goals',
+  APPOINTMENTS: 'anna_boutique_v5_appointments',
   UNREAD_ASSISTANT: 'anna_boutique_v4_unread_asst',
 };
 
@@ -178,7 +175,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [tasks, setTasks] = useState<Task[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.TASKS);
-    return saved ? JSON.parse(saved) : INITIAL_TASKS;
+    // Blank until user clicks "Run AI Analysis" — analysis populates the Action Wall.
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [roles] = useState<Role[]>(() => {
@@ -208,12 +206,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [appointments, setAppointments] = useState<Appointment[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.APPOINTMENTS);
-    return saved ? JSON.parse(saved) : INITIAL_APPOINTMENTS;
+    // Blank until "Run AI Analysis".
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [goals, setGoals] = useState<Goal[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.GOALS);
-    return saved ? JSON.parse(saved) : INITIAL_GOALS;
+    // Blank until "Run AI Analysis" — analysis creates goals.
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => {
@@ -307,13 +307,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setProducts(freshProds);
       setCustomers(freshCusts);
       setSales(freshSales);
-      setTasks(INITIAL_TASKS);
+      // Keep tasks/goals/appointments blank — only "Run AI Analysis" fills them.
+      setTasks([]);
       setInsights([]);
       setShopContext({});
       setConnectors(INITIAL_CONNECTORS);
       setContentIdeas(INITIAL_CONTENT_IDEAS);
-      setAppointments(INITIAL_APPOINTMENTS);
-      setGoals(INITIAL_GOALS);
+      setAppointments([]);
+      setGoals([]);
       setTeamMembers(INITIAL_TEAM_MEMBERS);
       setCurrentUserState(INITIAL_TEAM_MEMBERS[0]);
       setIsLandingPageState(false);
@@ -918,13 +919,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setProducts(DEMO_PRODUCTS);
     setCustomers(generateAllCustomers());
     setSales(generateAllSales(generateAllCustomers(), DEMO_PRODUCTS));
-    setTasks(INITIAL_TASKS);
+    setTasks([]);
     setInsights([]);
     setShopContext({});
     setConnectors(INITIAL_CONNECTORS);
     setContentIdeas(INITIAL_CONTENT_IDEAS);
-    setAppointments(INITIAL_APPOINTMENTS);
-    setGoals(INITIAL_GOALS);
+    setAppointments([]);
+    setGoals([]);
     setTeamMembers(INITIAL_TEAM_MEMBERS);
     setCurrentUserState(INITIAL_TEAM_MEMBERS[0]);
     setAuthUser(null);
