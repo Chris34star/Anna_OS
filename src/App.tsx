@@ -23,7 +23,6 @@ import { MessagingView } from './views/MessagingView';
 import { ImportView } from './views/ImportView';
 import { OnboardingView } from './views/OnboardingView';
 import { LandingPageView } from './views/LandingPageView';
-import { DemoSetupView } from './views/DemoSetupView';
 import { SettingsModal } from './components/SettingsModal';
 import { ChatBubble } from './components/ChatBubble';
 
@@ -43,11 +42,9 @@ function AppContent() {
     return <LandingPageView />;
   }
 
-  // Setup chats run alone: no sidebar modules, header, or chat bubble —
+  // Setup chat runs alone: no sidebar modules, header, or chat bubble —
   // the AI builds the modules, so they only appear after setup finishes.
-  if (activeTab === 'demo-setup') {
-    return <DemoSetupView />;
-  }
+  // (demo-setup route removed — real AI onboarding only.)
   if (activeTab === 'onboarding') {
     return <OnboardingView />;
   }
@@ -86,7 +83,6 @@ function AppContent() {
           {activeTab === 'chat' && <ChatView />}
           {activeTab === 'import' && <ImportView />}
           {activeTab === 'onboarding' && <OnboardingView />}
-          {activeTab === 'demo-setup' && <DemoSetupView />}
         </main>
       </div>
 

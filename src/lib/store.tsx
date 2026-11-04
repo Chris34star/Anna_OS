@@ -73,7 +73,7 @@ interface StoreContextType {
   updateTeamMemberPermissions: (id: string, permissions: RolePermissions) => void;
   removeTeamMember: (id: string) => void;
   authUser: AuthUser | null;
-  signInWithSocial: (provider: 'google' | 'facebook' | 'apple' | 'email', email?: string, name?: string) => void;
+  signInWithSocial: (provider: 'google' | 'facebook' | 'apple' | 'email', email?: string, name?: string, avatar?: string) => void;
   signOut: () => void;
   isLandingPage: boolean;
   setIsLandingPage: (val: boolean) => void;
@@ -843,38 +843,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const signInWithSocial = (
     provider: 'google' | 'facebook' | 'apple' | 'email',
     customEmail?: string,
-    customName?: string
+    customName?: string,
+    customAvatar?: string
   ) => {
-    const defaultName =
-      provider === 'google'
-        ? 'Chrisandus Odhiambo'
-        : provider === 'apple'
-        ? 'Chrisandus (Apple ID)'
-        : provider === 'facebook'
-        ? 'Chrisandus Facebook'
-        : 'Store Owner';
-    const defaultEmail =
-      provider === 'google'
-        ? 'chrisandusodhiambo80@gmail.com'
-        : `${provider.toLowerCase()}.user@amaniluxe.co.ke`;
+    const defaultName = 'Store Owner';
+    const defaultEmail = `${provider.toLowerCase()}.user@store.local`;
 
     const user: AuthUser = {
       id: `auth-${Date.now()}`,
-      name: customName || defaultName,
-      email: customEmail || defaultEmail,
-      avatar: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80`,
+      name: (customName || '').trim() || defaultName,
+      email: (customEmail || '').trim() || defaultEmail,
+      avatar: customAvatar || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80`,
       provider,
       role_name: 'CEO',
     };
 
     setAuthUser(user);
+    // Empty workspace — AI onboarding chat sets the real shop name/type/roles.
+    // Never pre-fill boutique/demo data here.
     setShopState((prev) => ({
       ...prev,
-      type: 'boutique',
-      name: `${user.name.split(' ')[0]}'s Luxe Boutique & Footwear`,
+      name: user.name ? `${user.name.split(' ')[0]}'s Store` : 'My Store',
       owner_id: user.id,
-      suggested_roles: ['CEO', 'Floor Cashier', 'Boutique Stylist', 'Stock Manager'],
-      custom_fields_needed: ['size', 'color', 'material'],
+      suggested_roles: ['CEO'],
+      custom_fields_needed: [],
     }));
 
     const ceoMember: TeamMember = {
@@ -898,6 +890,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setTeamMembers((prev) => [ceoMember, ...prev.filter((m) => m.role_name !== 'CEO')]);
+    setProducts([]);
+    setCustomers([]);
+    setSales([]);
     setCurrentUserState(ceoMember);
     setIsLandingPageState(false);
     setActiveTab('onboarding');

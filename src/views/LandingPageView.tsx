@@ -1,28 +1,10 @@
 import React, { useState } from 'react';
 import {
   ArrowRight,
-  Bot,
-  BrainCircuit,
   CheckCircle2,
-  ChevronRight,
-  Flame,
-  Globe,
-  Layers,
-  Lock,
   Mail,
-  MessageSquare,
-  Package,
-  Play,
-  Scissors,
-  Shield,
-  ShieldCheck,
   ShoppingCart,
   Sparkles,
-  Star,
-  Target,
-  Trophy,
-  Users,
-  Zap,
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 
@@ -33,8 +15,6 @@ export const LandingPageView: React.FC = () => {
     signInWithSocial,
     authUser,
     signOut,
-    shop,
-    products,
   } = useStore();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -42,13 +22,50 @@ export const LandingPageView: React.FC = () => {
   const [authName, setAuthName] = useState('');
   const [authLoading, setAuthLoading] = useState<string | null>(null);
 
-  const handleLaunchDemo = () => {
-    setIsLandingPage(false);
-    setActiveTab('demo-setup');
+  const [authError, setAuthError] = useState('');
+  const handleGoogleSignIn = async () => {
+    setAuthError('');
+    const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID as string | undefined;
+    if (!clientId) {
+      setAuthError('Google sign-in needs a Client ID — set VITE_GOOGLE_CLIENT_ID in your env, then redeploy. Meanwhile use Direct Email below.');
+      return;
+    }
+    setAuthLoading('google');
+    try {
+      const cred = await new Promise<string>((resolve, reject) => {
+        const w = window as any;
+        if (!w.google?.accounts?.id) return reject(new Error('Google script not loaded — check connection and retry.'));
+        w.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (resp: any) => resp?.credential ? resolve(resp.credential) : reject(new Error('Google cancelled')),
+          auto_select: false,
+        });
+        w.google.accounts.id.prompt((n: any) => {
+          if (n?.isNotDisplayed?.() || n?.isSkippedMoment?.()) reject(new Error('Google popup blocked — allow popups and retry.'));
+        });
+      });
+      // Verify ID token client-side: decode + check aud/exp.
+      const parts = cred.split('.');
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (payload.aud !== clientId) throw new Error('Google token audience mismatch.');
+      if (payload.exp * 1000 < Date.now()) throw new Error('Google session expired — retry.');
+      const email = String(payload.email || '');
+      const name = String(payload.name || email.split('@')[0] || 'Store Owner');
+      if (!payload.email_verified && !email) throw new Error('Google email not verified.');
+      setAuthEmail(email);
+      setAuthName(name);
+      signInWithSocial('google', email, name, payload.picture);
+      setAuthLoading(null);
+      setShowAuthModal(false);
+      setIsLandingPage(false);
+      setActiveTab('onboarding');
+    } catch (e: any) {
+      setAuthLoading(null);
+      setAuthError(String(e?.message || e) || 'Google sign-in failed.');
+    }
   };
 
-  // Asstensha Google Auth: real-store entry — requires store name+email, then opens AI setup chat (onboarding), never demo.
-  const handleSocialSignIn = async (provider: 'google' | 'facebook' | 'apple' | 'email') => {
+  const handleSocialSignIn = async (provider: 'facebook' | 'apple' | 'email') => {
     setAuthLoading(provider);
     await new Promise((r) => setTimeout(r, 600));
 
@@ -125,19 +142,11 @@ export const LandingPageView: React.FC = () => {
           ) : (
             <>
               <button
-                onClick={handleLaunchDemo}
-                className="px-3.5 py-1.5 text-xs font-semibold text-neutral-300 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Play className="w-3 h-3 text-emerald-400 fill-current" />
-                <span>Explore Demo</span>
-              </button>
-
-              <button
                 onClick={() => setShowAuthModal(true)}
                 className="px-4 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 rounded-xl transition-all shadow-md shadow-emerald-950 flex items-center gap-1.5 cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Get Started Real Store</span>
+                <span>Start Free Trial</span>
               </button>
             </>
           )}
@@ -153,7 +162,7 @@ export const LandingPageView: React.FC = () => {
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
           <span>Autonomous Store OS for Small &amp; Medium Retailers</span>
           <span className="text-neutral-600">·</span>
-          <span className="text-neutral-400">Boutique Demo Showcase · Llama 3</span>
+          <span className="text-neutral-400">AI Setup · Llama 3</span>
         </div>
 
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white max-w-4xl mx-auto leading-[1.12]">
@@ -165,25 +174,17 @@ export const LandingPageView: React.FC = () => {
         </h1>
 
         <p className="text-sm sm:text-base text-neutral-400 max-w-3xl mx-auto leading-relaxed">
-          Say goodbye to spreadsheet chaos. Anna OS is the all-in-one store operating system built for small to medium retail businesses—from boutiques and electronics stores to supermarkets, salons, and hardware shops. Featuring a visual multi-item POS register, automated 45-day dead stock discovery, Meta WhatsApp VIP re-engagement, and granular staff role permissions.
+          Anna OS builds your real store from a quick AI chat — POS, dead-stock alerts, VIP re-engagement, and staff roles. Starts blank, no demo data: the AI sets up your business environment.
         </p>
 
         {/* Primary Call to Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
           <button
-            onClick={handleLaunchDemo}
-            className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/80 text-white font-bold text-sm shadow-xl flex items-center justify-center gap-2.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-          >
-            <Play className="w-4 h-4 text-emerald-400 fill-current" />
-            <span>Explore Demo</span>
-          </button>
-
-          <button
             onClick={() => setShowAuthModal(true)}
             className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-extrabold text-sm shadow-xl shadow-emerald-950 flex items-center justify-center gap-2.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           >
             <Sparkles className="w-4 h-4" />
-            <span>Get Started with Your Real Store</span>
+            <span>Start Free Trial</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -224,13 +225,11 @@ export const LandingPageView: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
-          {/* Blueprint 1: Boutique (Flagship Demo) */}
-          <div className="p-4 rounded-2xl bg-neutral-900/90 border-2 border-emerald-500/80 shadow-lg shadow-emerald-950/40 space-y-2 relative">
+          {/* Blueprint 1: Boutique (AI-configured) */}
+          <div className="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 hover:border-neutral-700 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-lg">👗</span>
-              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-500 text-neutral-950">
-                ACTIVE DEMO
-              </span>
+              <span className="text-[9px] font-mono text-neutral-500">AI-SETUP</span>
             </div>
             <div className="font-bold text-white">Boutique &amp; Footwear</div>
             <p className="text-[11px] text-neutral-400 leading-normal">
@@ -356,46 +355,27 @@ export const LandingPageView: React.FC = () => {
             <div>
               <div className="inline-flex items-center gap-2 text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-wider mb-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                FEATURED INTERACTIVE DEMO · BOUTIQUE &amp; APPAREL SHOWCASE
+                LIVE STORE WORKSPACE · AI-SETUP
               </div>
               <h3 className="text-xl font-bold text-white">
-                {shop.name}
+                Your real store workspace
               </h3>
               <p className="text-xs text-neutral-400 mt-0.5">
-                Experience real-time visual POS, 45-day dead stock discovery, and WhatsApp re-engagement. (Choose any retail vertical for your real store).
+                Your AI assistant sets up this workspace from chat — no demo data, blank until you run analysis.
               </p>
             </div>
 
             <button
-              onClick={handleLaunchDemo}
+              onClick={() => setShowAuthModal(true)}
               className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto shadow-lg shadow-emerald-950"
             >
-              <span>Explore Demo</span>
+              <span>Open AI Setup</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-            {products.slice(0, 4).map((p) => (
-              <div
-                key={p.id}
-                className="p-4 rounded-xl bg-neutral-950/80 border border-neutral-800/80 space-y-2"
-              >
-                <div className="flex items-center justify-between text-[10px] font-mono text-neutral-400">
-                  <span className="text-emerald-400">{p.category}</span>
-                  <span>Stock: {p.stock_qty}</span>
-                </div>
-                <div className="font-bold text-white truncate">{p.name}</div>
-                <div className="flex items-center justify-between pt-1 border-t border-neutral-900 font-mono">
-                  <span className="text-emerald-400 font-bold">
-                    KES {p.sell_price.toLocaleString()}
-                  </span>
-                  <span className="text-[10px] text-neutral-400">
-                    {String(p.custom_fields?.size || 'All Sizes')}
-                  </span>
-                </div>
-              </div>
-            ))}
+          <div className="text-xs text-neutral-500">
+            Products, tasks and insights appear here after AI setup + Run AI Analysis.
           </div>
         </div>
       </section>
@@ -410,8 +390,8 @@ export const LandingPageView: React.FC = () => {
                   AO
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Get Started with Anna OS</h3>
-                  <p className="text-[10px] text-neutral-400 font-mono">Launch your store (Boutique, Electronics, Retail &amp; more)</p>
+                  <h3 className="text-sm font-bold text-white">Start Free Trial</h3>
+                  <p className="text-[10px] text-neutral-400 font-mono">AI sets up your real store — no demo</p>
                 </div>
               </div>
               <button
@@ -426,7 +406,7 @@ export const LandingPageView: React.FC = () => {
             <div className="space-y-2.5">
               {/* Google */}
               <button
-                onClick={() => handleSocialSignIn('google')}
+                onClick={handleGoogleSignIn}
                 disabled={!!authLoading}
                 className="w-full py-2.5 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/80 text-xs font-semibold text-white flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs"
               >
@@ -448,8 +428,11 @@ export const LandingPageView: React.FC = () => {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                   />
                 </svg>
-                <span>{authLoading === 'google' ? 'Connecting to Google...' : 'Continue with Google'}</span>
+                <span>{authLoading === 'google' ? 'Verifying with Google...' : 'Continue with Google'}</span>
               </button>
+              {authError && (
+                <div className="text-[11px] text-red-400 bg-red-950/30 border border-red-800/40 rounded-xl px-3 py-2">{authError}</div>
+              )}
 
               {/* Apple ID */}
               <button
@@ -498,7 +481,7 @@ export const LandingPageView: React.FC = () => {
                   type="text"
                   value={authName}
                   onChange={(e) => setAuthName(e.target.value)}
-                  placeholder="e.g. Chrisandus Odhiambo"
+                  placeholder="e.g. Your full name"
                   className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
@@ -510,7 +493,7 @@ export const LandingPageView: React.FC = () => {
                   required
                   value={authEmail}
                   onChange={(e) => setAuthEmail(e.target.value)}
-                  placeholder="chrisandusodhiambo80@gmail.com"
+                  placeholder="you@yourstore.com"
                   className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
@@ -521,7 +504,7 @@ export const LandingPageView: React.FC = () => {
                 className="w-full py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-950 flex items-center justify-center gap-2"
               >
                 <Mail className="w-3.5 h-3.5" />
-                <span>Launch Real Store Workspace</span>
+                <span>Verify & Open AI Setup →</span>
               </button>
             </form>
           </div>

@@ -1,21 +1,13 @@
 import React, { useState } from 'react';
 import {
-  ArrowRight,
   Bot,
   Check,
-  CheckCircle2,
-  Cpu,
   Layers,
-  MessageSquare,
   Package,
-  Plus,
   Send,
   ShieldCheck,
-  ShoppingCart,
   Sparkles,
-  Store,
   User,
-  Users,
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { NavApproval } from '../components/Wiring';
@@ -30,16 +22,16 @@ interface ChatMessage {
 }
 
 export const OnboardingView: React.FC = () => {
-  const { shop, setShop, setActiveTab, authUser, seedDemoData } = useStore();
+  const { shop, setShop, setActiveTab, authUser } = useStore();
 
-  const ownerName = authUser?.name || 'Chrisandus Odhiambo';
-  const ownerEmail = authUser?.email || 'chrisandusodhiambo80@gmail.com';
+  const ownerName = authUser?.name || 'there';
+  const ownerEmail = authUser?.email || '';
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'msg-01',
       sender: 'ai',
-      text: `Habari ${ownerName.split(' ')[0]}! 👋 I am Anna, your Llama 3 retail onboarding agent.\n\nI adapt Anna OS for your specific business—whether you operate a **fashion boutique**, **electronics shop**, **supermarket / mini-mart**, **salon & spa**, or **hardware store**.\n\nTell me:\n1. What kind of business do you run and what do you sell?\n2. How many staff members work with you?\n3. What special product attributes do you need to track (e.g. sizes/colors, IMEI/warranty, expiry dates, or stylist appointments)?`,
+      text: `Habari ${ownerName.split(' ')[0]}! 👋 I am Anna, your live AI setup agent.\n\nTell me about your real business and I'll build your workspace — no demo data, blank home until you run analysis.\n\n1. What kind of business do you run and what do you sell?\n2. How many staff work with you?\n3. Anything special to track (sizes/colors, warranty, expiry dates, appointments)?`,
       timestamp: 'Just now',
     },
   ]);
@@ -73,12 +65,13 @@ export const OnboardingView: React.FC = () => {
 
     try {
       const result = await extractOnboardingDetails(text);
+      const usedAI = Boolean(localStorage.getItem('anna_ai_api_key')) || Boolean((import.meta as any).env?.VITE_AI_BASE_URL);
       setActiveConfig(result);
 
       const aiMsg: ChatMessage = {
         id: `msg-ai-${Date.now()}`,
         sender: 'ai',
-        text: `Superb! Configured ${result.shop_type.replace('_', ' ')} store schema: **${result.shop_name}**.\n• Suggested Staff Roles: ${result.suggested_roles.join(', ')}\n• Dynamic Tracking Fields: ${result.custom_fields_needed.join(', ')}\n\nClick "Save Shop & Open POS" to start counter sales!`,
+        text: `Done — I set up your ${result.shop_type.replace('_', ' ')} workspace: **${result.shop_name}**.\n• Staff Roles: ${result.suggested_roles.join(', ')}\n• Tracking: ${result.custom_fields_needed.join(', ')}\n\nConfirm below and I'll open your EMPTY home — tasks, goals and insights appear only after you click "Run AI Analysis".${usedAI ? '' : '\n\n(Tip: add your AI key in Settings → Model for full live-AI responses.)'}`,
         timestamp: 'Just now',
         extractionResult: result,
       };
@@ -125,12 +118,12 @@ export const OnboardingView: React.FC = () => {
     }
     // Real AI flow: AI configured the shop from chat → land on Analyzer BLANK.
     // User must click "Run AI Analysis" to populate tasks/insights/goals.
+    // AI opens an EMPTY home and builds the business environment — never demo.
     setActiveTab('analyzer');
   };
 
-  const handleLaunchWithBoutiqueCatalog = async () => {
-    await seedDemoData();
-    setActiveTab('pos');
+  const handleLaunchWithRealWorkspace = async () => {
+    setActiveTab('analyzer');
   };
 
   return (
@@ -148,61 +141,43 @@ export const OnboardingView: React.FC = () => {
             </span>
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-white">
-            Welcome to {shop.name}
+            {activeConfig ? `Welcome to ${activeConfig.shop_name}` : 'Set up your real store with AI'}
           </h2>
           <p className="text-xs text-neutral-400 mt-0.5">
-            Signed in as Store Owner: <strong className="text-emerald-400">{ownerName}</strong> ({ownerEmail})
+            Signed in as Store Owner: <strong className="text-emerald-400">{ownerName}</strong>{ownerEmail ? ` (${ownerEmail})` : ''}
           </p>
         </div>
 
         <button
-          onClick={() => setActiveTab('pos')}
+          onClick={handleLaunchWithRealWorkspace}
           className="px-4 py-2 text-xs font-bold text-white bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-xl transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto"
         >
-          <span>Jump Directly to POS Register →</span>
+          <span>Open Empty Workspace →</span>
         </button>
       </div>
 
-      {/* Real Store Fast-Track Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-950/50 via-neutral-900 to-neutral-900 border border-emerald-500/40 shadow-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              <ShoppingCart className="w-5 h-5" />
-            </div>
-            <span className="text-[10px] font-mono font-bold text-emerald-400 px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800/50">
-              FEATURED DEMO DATA
-            </span>
+      {/* Real Store Setup — AI chat configures everything (no demo data path) */}
+      <div className="p-5 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <Sparkles className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-bold text-white">Load 50 Boutique Items (Instant Demo)</h3>
-          <p className="text-xs text-neutral-300 leading-relaxed">
-            Preloads evening dresses, lug-sole boots, and leather handbags with sizes (XS-XL, EU 38-42) and Kenyan VIP customer profiles.
-          </p>
-          <button
-            onClick={handleLaunchWithBoutiqueCatalog}
-            className="w-full py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 rounded-xl transition-all shadow-md shadow-emerald-950 flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Load Boutique Demo &amp; Open POS</span>
-          </button>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-3">
-          <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
-            <Package className="w-5 h-5" />
+          <div>
+            <h3 className="text-sm font-bold text-white">AI Business Setup</h3>
+            <p className="text-[11px] text-neutral-500 font-mono">Chat below — Anna configures your real store</p>
           </div>
-          <h3 className="text-sm font-bold text-white">Custom Business Setup</h3>
-          <p className="text-xs text-neutral-400 leading-relaxed">
-            Chat below with Anna to auto-configure an electronics shop, mini-mart, salon, or hardware store, or confirm current schema.
-          </p>
-          <button
-            onClick={handleApplyConfig}
-            className="w-full py-2.5 text-xs font-semibold text-neutral-200 hover:text-white bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Check className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Confirm Setup &amp; Enter Workspace</span>
-          </button>
         </div>
+        <p className="text-xs text-neutral-400 leading-relaxed">
+          Describe your business in the chat (type, products, staff). Anna connects to real AI, sets up your workspace, then opens a blank home — tasks and insights appear only after you run analysis.
+        </p>
+        <button
+          onClick={handleApplyConfig}
+          disabled={!activeConfig}
+          className="w-full py-2.5 text-xs font-semibold text-neutral-200 hover:text-white bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
+        >
+          <Check className="w-3.5 h-3.5 text-emerald-400" />
+          <span>{activeConfig ? 'Confirm Setup & Enter Workspace' : 'Chat first, then confirm setup'}</span>
+        </button>
       </div>
 
       {/* Main Conversational Layout */}
@@ -216,11 +191,11 @@ export const OnboardingView: React.FC = () => {
                 <Bot className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-xs font-semibold text-neutral-200 block">Anna Boutique Agent</span>
-                <span className="text-[10px] text-neutral-500 font-mono">meta-musepark-1.3</span>
+                <span className="text-xs font-semibold text-neutral-200 block">Anna Setup Agent</span>
+                <span className="text-[10px] text-neutral-500 font-mono">live AI · {(import.meta as any).env?.VITE_AI_MODEL || 'meta-musepark-1.3'}</span>
               </div>
             </div>
-            <span className="text-[11px] font-mono text-emerald-400">Fixed Postgres Schema</span>
+            <span className="text-[11px] font-mono text-emerald-400">Real AI Setup</span>
           </div>
 
           {/* Messages */}
@@ -287,7 +262,7 @@ export const OnboardingView: React.FC = () => {
             {isProcessing && (
               <div className="flex gap-2 items-center text-xs text-neutral-400">
                 <Bot className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                <span>Anna is analyzing boutique details...</span>
+                <span>Anna AI is analyzing your business...</span>
               </div>
             )}
           </div>
@@ -335,52 +310,63 @@ export const OnboardingView: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-emerald-400" />
-              <h3 className="text-sm font-semibold text-neutral-100">Configured Store Schema</h3>
+              <h3 className="text-sm font-semibold text-neutral-100">Store Preview (AI-built)</h3>
             </div>
+            {!activeConfig && (
+              <div className="text-[11px] text-neutral-500">Empty until you chat — AI fills this from your answers.</div>
+            )}
 
             <div className="p-3.5 rounded-xl bg-neutral-950 border border-neutral-800 space-y-2.5 text-xs">
               <div>
                 <span className="text-[10px] text-neutral-500 block">STORE NAME</span>
                 <span className="font-semibold text-neutral-200">
-                  {activeConfig?.shop_name || shop.name}
+                  {activeConfig?.shop_name || '— chat first, AI will set this —'}
                 </span>
               </div>
 
               <div>
                 <span className="text-[10px] text-neutral-500 block">INDUSTRY BLUEPRINT</span>
                 <span className="font-bold text-emerald-400 uppercase tracking-wider">
-                  {activeConfig?.shop_type || shop.type}
+                  {activeConfig?.shop_type || '— pending AI setup —'}
                 </span>
               </div>
 
               <div>
                 <span className="text-[10px] text-neutral-500 block mb-1">SUGGESTED ROLES</span>
                 <div className="flex flex-wrap gap-1">
-                  {(activeConfig?.suggested_roles || shop.suggested_roles || ['CEO', 'Floor Cashier', 'Boutique Stylist', 'Stock Manager']).map(
-                    (role) => (
-                      <span
-                        key={role}
-                        className="px-2 py-0.5 rounded bg-neutral-800 text-[10px] text-neutral-300 font-medium"
-                      >
-                        {role}
-                      </span>
+                  {(activeConfig?.suggested_roles || shop.suggested_roles || []).length ? (
+                    (activeConfig?.suggested_roles || shop.suggested_roles || []).map(
+                      (role) => (
+                        <span
+                          key={role}
+                          className="px-2 py-0.5 rounded bg-neutral-800 text-[10px] text-neutral-300 font-medium"
+                        >
+                          {role}
+                        </span>
+                      )
                     )
+                  ) : (
+                    <span className="text-[10px] text-neutral-600">— AI will configure after chat —</span>
                   )}
                 </div>
               </div>
 
               <div>
-                <span className="text-[10px] text-neutral-500 block mb-1">APPAREL VARIANT FIELDS</span>
+                <span className="text-[10px] text-neutral-500 block mb-1">TRACKING FIELDS</span>
                 <div className="flex flex-wrap gap-1">
-                  {(activeConfig?.custom_fields_needed || shop.custom_fields_needed || ['size', 'color', 'material']).map(
-                    (field) => (
-                      <span
-                        key={field}
-                        className="px-2 py-0.5 rounded bg-purple-950/60 border border-purple-800/40 text-[10px] text-purple-300 font-mono"
-                      >
-                        {field}
-                      </span>
+                  {(activeConfig?.custom_fields_needed || shop.custom_fields_needed || []).length ? (
+                    (activeConfig?.custom_fields_needed || shop.custom_fields_needed || []).map(
+                      (field) => (
+                        <span
+                          key={field}
+                          className="px-2 py-0.5 rounded bg-purple-950/60 border border-purple-800/40 text-[10px] text-purple-300 font-mono"
+                        >
+                          {field}
+                        </span>
+                      )
                     )
+                  ) : (
+                    <span className="text-[10px] text-neutral-600">— AI will configure after chat —</span>
                   )}
                 </div>
               </div>
