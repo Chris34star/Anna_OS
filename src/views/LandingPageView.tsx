@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import {
   ArrowRight,
+  BrainCircuit,
   CheckCircle2,
   Mail,
+  MessageSquare,
+  ShieldCheck,
   ShoppingCart,
   Sparkles,
 } from 'lucide-react';
